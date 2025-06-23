@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Email {
+  id    Int    @id @default(autoincrement())
+  email String @unique
+}
+
+model General_information {
+  id             Int      @id @default(autoincrement())
+  device_id      String
+  location       String
+  detection_time DateTime
+}
+
+model Processing_Performance {
+  id                 Int     @id @default(autoincrement())
+  dsp_time           Float
+  classification_time Float
+  anomaly_time       Float
+}

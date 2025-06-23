@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import mqtt from "mqtt"
 
 interface ConfigureRequest {
   ssid: string
@@ -28,11 +29,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Invalid email format: ${invalidEmails.join(", ")}` }, { status: 400 })
     }
 
-    // Here you would typically send the configuration to your ESP32
-    // This could be done via HTTP request to the ESP32's IP address
-    // or through a message queue system like MQTT
+    // --- START: Actual ESP32 Communication (MQTT) ---
+    const mqttBrokerUrl = process.env.MQTT_BROKER_URL
+    const mqttUsername = process.env.MQTT_USERNAME
+    const mqttPassword = process.env.MQTT_PASSWORD
+    const mqttConfigTopic = "esp32/config" // Topic for sending configuration
 
-    // Example ESP32 communication:
+    if (!mqttBrokerUrl) {
+      return NextResponse.json({ error: "MQTT_BROKER_URL environment variable is not set." }, { status: 500 })
+    }
+
+    const client = mqtt.connect(mqttBrokerUrl, {
+      username: mqttUsername,
+      password: mqttPassword,
+      clientId: `nextjs_client_${Math.random().toString(16).substr(2, 8)}`, // Unique client ID
+      reconnectPeriod: 1000, // Reconnect after 1 second
+    })
+
     const esp32Config = {
       wifi: {
         ssid: body.ssid,
@@ -42,40 +55,66 @@ export async function POST(request: NextRequest) {
         emails: body.emails,
         token: body.appToken,
       },
-      timestamp: new Date().toISOString(),
     }
 
-    // Simulate ESP32 communication
-    // In a real implementation, you would:
-    // 1. Send HTTP POST to ESP32's IP address
-    // 2. Or publish to MQTT topic that ESP32 subscribes to
-    // 3. Or use WebSocket connection
+    console.log(`Attempting to send configuration to MQTT topic: ${mqttConfigTopic}`)
 
-    console.log("Sending configuration to ESP32:", esp32Config)
+    // Use a Promise to handle MQTT connection and publishing
+    await new Promise<void>((resolve, reject) => {
+      let timeoutId: NodeJS.Timeout
 
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+      client.on("connect", () => {
+        console.log("Connected to MQTT broker.")
+        client.publish(mqttConfigTopic, JSON.stringify(esp32Config), { qos: 1 }, (err) => {
+          if (err) {
+            console.error("Failed to publish MQTT message:", err)
+            client.end()
+            clearTimeout(timeoutId)
+            reject(new Error("Failed to publish configuration to ESP32 via MQTT."))
+          } else {
+            console.log("MQTT message published successfully.")
+            client.end() // Disconnect after publishing
+            clearTimeout(timeoutId)
+            resolve()
+          }
+        })
+      })
 
-    // Simulate success/failure based on some conditions
-    // In real implementation, this would be based on ESP32 response
-    const success = Math.random() > 0.2 // 80% success rate for demo
+      client.on("error", (err) => {
+        console.error("MQTT connection error:", err)
+        client.end()
+        clearTimeout(timeoutId)
+        reject(new Error(`MQTT connection error: ${err.message}`))
+      })
 
-    if (!success) {
-      return NextResponse.json({ error: "ESP32 connection timeout or configuration failed" }, { status: 500 })
-    }
+      // Set a timeout for the MQTT operation
+      timeoutId = setTimeout(() => {
+        console.error("MQTT operation timed out.")
+        client.end()
+        reject(new Error("MQTT operation timed out."))
+      }, 10000) // 10 second timeout for MQTT operation
+    })
 
     return NextResponse.json({
       success: true,
-      message: "ESP32 configured successfully",
+      message: "ESP32 configured successfully via MQTT",
       config: {
         ssid: body.ssid,
         emailCount: body.emails.length,
         timestamp: new Date().toISOString(),
       },
     })
+    // --- END: Actual ESP32 Communication (MQTT) ---
   } catch (error) {
     console.error("ESP32 configuration error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    // Check if the error is due to AbortSignal (timeout)
+    if (error instanceof Error && error.name === "TimeoutError") {
+      return NextResponse.json(
+        { error: "ESP32 connection timed out. Please ensure the device is online and accessible." },
+        { status: 504 },
+      )
+    }
+    return NextResponse.json({ error: "Internal server error or ESP32 communication failed" }, { status: 500 })
   }
 }
 

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { Separator } from "@/components/ui/separator"
+import { EmailSettings } from "@/components/email-settings"
 
 interface FormData {
   ssid: string
@@ -124,13 +125,17 @@ export default function ESP32Setup() {
     })
   }
 
+
+
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">ESP32 Setup</h1>
-          <p className="text-gray-600 dark:text-gray-400">ตั้งค่าการเชื่อมต่อ Wi-Fi และการแจ้งเตือนทางอีเมล</p>
+    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+      <div className="max-w-2xl mx-auto space-y-8">
+        <div className="text-center">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">ESP32 Setup</h1>
+          <p className="text-muted-foreground">ตั้งค่าการเชื่อมต่อ Wi-Fi และการแจ้งเตือนทางอีเมล</p>
         </div>
+
+        <EmailSettings />
 
         <Card className="shadow-xl border-0 bg-card/80 backdrop-blur-sm dark:border-card-foreground/10">
           <CardHeader className="text-center pb-6">
