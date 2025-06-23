@@ -18,6 +18,7 @@ model General_information {
   device_id      String
   location       String
   detection_time DateTime
+  detection_human Boolean
 }
 
 model Processing_Performance {
