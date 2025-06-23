@@ -125,27 +125,29 @@ export default function ESP32Setup() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">ESP32 Setup</h1>
-          <p className="text-gray-600">ตั้งค่าการเชื่อมต่อ Wi-Fi และการแจ้งเตือนทางอีเมล</p>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">ESP32 Setup</h1>
+          <p className="text-gray-600 dark:text-gray-400">ตั้งค่าการเชื่อมต่อ Wi-Fi และการแจ้งเตือนทางอีเมล</p>
         </div>
 
-        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+        <Card className="shadow-xl border-0 bg-card/80 backdrop-blur-sm dark:border-card-foreground/10">
           <CardHeader className="text-center pb-6">
             <CardTitle className="flex items-center justify-center gap-2 text-2xl">
-              <Smartphone className="w-6 h-6 text-blue-600" />
+              <Smartphone className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               การตั้งค่าอุปกรณ์
             </CardTitle>
-            <CardDescription>กรอกข้อมูลเพื่อเชื่อมต่อ ESP32 กับ Wi-Fi และตั้งค่าการแจ้งเตือน</CardDescription>
+            <CardDescription className="dark:text-gray-400">
+              กรอกข้อมูลเพื่อเชื่อมต่อ ESP32 กับ Wi-Fi และตั้งค่าการแจ้งเตือน
+            </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-6">
             {/* Wi-Fi Settings */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-3">
-                <Wifi className="w-5 h-5 text-blue-600" />
+                <Wifi className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 <h3 className="text-lg font-semibold">การตั้งค่า Wi-Fi</h3>
               </div>
 
@@ -186,7 +188,7 @@ export default function ESP32Setup() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-green-600" />
+                  <Mail className="w-5 h-5 text-green-600 dark:text-green-400" />
                   <h3 className="text-lg font-semibold">อีเมลสำหรับแจ้งเตือน</h3>
                 </div>
                 <Badge variant="secondary">{formData.emails.filter((e) => e.trim()).length} อีเมล</Badge>
@@ -208,7 +210,7 @@ export default function ESP32Setup() {
                         variant="outline"
                         size="icon"
                         onClick={() => removeEmailField(index)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -220,7 +222,7 @@ export default function ESP32Setup() {
                   type="button"
                   variant="outline"
                   onClick={addEmailField}
-                  className="w-full border-dashed border-2 hover:bg-green-50 hover:border-green-300"
+                  className="w-full border-dashed border-2 hover:bg-green-50 hover:border-green-300 dark:hover:bg-green-900/20 dark:hover:border-green-700"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   เพิ่มอีเมล
@@ -233,7 +235,7 @@ export default function ESP32Setup() {
             {/* App Token */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <Key className="w-5 h-5 text-purple-600" />
+                <Key className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 <h3 className="text-lg font-semibold">App Token</h3>
               </div>
 
@@ -257,13 +259,15 @@ export default function ESP32Setup() {
               <div
                 className={`p-4 rounded-lg ${
                   connectionStatus === "success"
-                    ? "bg-green-50 border border-green-200"
-                    : "bg-red-50 border border-red-200"
+                    ? "bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-700"
+                    : "bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-700"
                 }`}
               >
                 <p
                   className={`text-sm font-medium ${
-                    connectionStatus === "success" ? "text-green-800" : "text-red-800"
+                    connectionStatus === "success"
+                      ? "text-green-800 dark:text-green-300"
+                      : "text-red-800 dark:text-red-300"
                   }`}
                 >
                   {connectionStatus === "success"
@@ -278,13 +282,18 @@ export default function ESP32Setup() {
               <Button
                 onClick={handleConnect}
                 disabled={isConnecting}
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
                 size="lg"
               >
                 {isConnecting ? "กำลังเชื่อมต่อ..." : "เชื่อมต่อ"}
               </Button>
 
-              <Button onClick={handleReset} variant="outline" size="lg" className="hover:bg-gray-50">
+              <Button
+                onClick={handleReset}
+                variant="outline"
+                size="lg"
+                className="hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 รีเซ็ต
               </Button>
@@ -293,10 +302,10 @@ export default function ESP32Setup() {
         </Card>
 
         {/* Info Card */}
-        <Card className="mt-6 bg-blue-50/50 border-blue-200">
+        <Card className="mt-6 bg-blue-50/50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700">
           <CardContent className="pt-6">
-            <h4 className="font-semibold text-blue-900 mb-2">💡 คำแนะนำ</h4>
-            <ul className="text-sm text-blue-800 space-y-1">
+            <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">💡 คำแนะนำ</h4>
+            <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
               <li>• ตรวจสอบให้แน่ใจว่า ESP32 อยู่ในโหมดการตั้งค่า</li>
               <li>• อีเมลจะใช้สำหรับรับการแจ้งเตือนจากอุปกรณ์</li>
               <li>• App Token ใช้สำหรับการยืนยันความปลอดภัย</li>
