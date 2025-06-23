@@ -5,15 +5,29 @@ const prisma = new PrismaClient();
 
 export async function GET() {
   try {
+    console.log("Attempting to fetch emails from database...");
+    console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
+    
     const emails = await prisma.email.findMany({
       orderBy: {
         id: 'asc'
       }
     });
+    
+    console.log("Successfully fetched emails:", emails.length);
     return NextResponse.json(emails);
   } catch (error) {
     console.error("Error fetching emails:", error);
-    return NextResponse.json({ error: "Failed to fetch emails" }, { status: 500 });
+    
+    let errorMessage = "Failed to fetch emails";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
+    return NextResponse.json({ 
+      error: errorMessage,
+      details: error instanceof Error ? error.stack : "Unknown error"
+    }, { status: 500 });
   }
 }
 
