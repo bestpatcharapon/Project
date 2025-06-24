@@ -50,7 +50,6 @@ export function EmailSettings() {
   }
 
   const addNewEmail = () => {
-    // Using a temporary string ID for new emails to avoid key conflicts
     setEmails([...emails, { id: `new-${Date.now()}`, email: "" }])
   }
 
@@ -61,12 +60,10 @@ export function EmailSettings() {
   const handleSave = async () => {
     setIsSaving(true)
 
-    // Filter out empty emails before saving
     const emailsToSave = emails
         .map(e => ({...e, email: e.email.trim()}))
         .filter(e => e.email)
         .map(e => {
-            // Convert temp string IDs to null so the backend knows they are new
             if(typeof e.id === 'string' && e.id.startsWith('new-')) {
                 return { email: e.email }
             }
@@ -105,7 +102,6 @@ export function EmailSettings() {
   }
 
   const handleTestEmail = async () => {
-    // Check if there are any saved emails first
     const savedEmails = emails.filter(e => typeof e.id === 'number' && e.email.trim())
     
     if (savedEmails.length === 0) {
@@ -152,47 +148,79 @@ export function EmailSettings() {
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="flex items-center gap-2">
-            <Mail className="w-6 h-6" />
-            <CardTitle>อีเมลสำหรับแจ้งเตือน</CardTitle>
+    <Card className="w-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm">
+      <CardHeader className="border-b border-gray-100 dark:border-gray-700 pb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+              <Mail className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+            </div>
+            <div>
+              <CardTitle className="text-gray-900 dark:text-gray-100 text-lg">อีเมลสำหรับแจ้งเตือน</CardTitle>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                จัดการรายการอีเมลที่จะได้รับการแจ้งเตือน
+              </p>
+            </div>
+          </div>
+          <Badge 
+            variant="secondary" 
+            className="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-4 py-2"
+          >
+            {emails.length} อีเมล
+          </Badge>
         </div>
-        <Badge variant="secondary">{emails.length} อีเมล</Badge>
       </CardHeader>
-      <CardContent>
+      
+      <CardContent className="pt-8">
         {isLoading ? (
-          <div className="flex justify-center items-center h-24">
-            <Loader2 className="w-8 h-8 animate-spin" />
+          <div className="flex justify-center items-center h-40">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-500 dark:text-gray-400 text-sm">กำลังโหลดข้อมูลอีเมล...</p>
+            </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {emails.map((email, index) => (
-              <div key={email.id} className="flex items-center gap-2">
-                <Input
-                  type="email"
-                  placeholder={`อีเมลที่ ${index + 1}`}
-                  value={email.email}
-                  onChange={(e) => handleEmailChange(email.id, e.target.value)}
-                />
-                <Button variant="ghost" size="icon" onClick={() => removeEmail(email.id)}>
-                  <Trash2 className="w-4 h-4" />
+              <div key={email.id} className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Input
+                    type="email"
+                    placeholder={`อีเมลที่ ${index + 1}`}
+                    value={email.email}
+                    onChange={(e) => handleEmailChange(email.id, e.target.value)}
+                    className="bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:border-gray-400 dark:focus:border-gray-500 h-12"
+                  />
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => removeEmail(email.id)}
+                  className="text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0 h-12 w-12"
+                >
+                  <Trash2 className="w-5 h-5" />
                 </Button>
               </div>
             ))}
-            <Button variant="outline" className="w-full border-dashed" onClick={addNewEmail}>
+            
+            <Button 
+              variant="outline" 
+              className="w-full border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 mt-6 h-12" 
+              onClick={addNewEmail}
+            >
               <Plus className="w-4 h-4 mr-2" />
-              เพิ่มอีเมล
+              เพิ่มอีเมลใหม่
             </Button>
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex justify-between">
+      
+      <CardFooter className="border-t border-gray-100 dark:border-gray-700 pt-8 flex justify-between gap-4">
         <Button 
           onClick={handleTestEmail} 
           disabled={isSendingTestEmail}
           variant="outline"
-          className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:border-green-700 dark:text-green-400"
+          className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:border-green-700 dark:text-green-400 px-6 py-3"
         >
           {isSendingTestEmail ? (
             <>
@@ -206,9 +234,20 @@ export function EmailSettings() {
             </>
           )}
         </Button>
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          บันทึก
+        
+        <Button 
+          onClick={handleSave} 
+          disabled={isSaving}
+          className="bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900 px-6 py-3"
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              บันทึก...
+            </>
+          ) : (
+            "บันทึก"
+          )}
         </Button>
       </CardFooter>
     </Card>

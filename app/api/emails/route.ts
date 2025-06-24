@@ -5,9 +5,16 @@ const prisma = new PrismaClient();
 
 export async function GET() {
   try {
-    console.log("Attempting to fetch emails from database...");
+    console.log("=== EMAIL API GET REQUEST ===");
     console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
+    console.log("DATABASE_URL preview:", process.env.DATABASE_URL?.substring(0, 50) + "...");
     
+    // Test database connection
+    console.log("Testing database connection...");
+    const result = await prisma.$queryRaw`SELECT 1`;
+    console.log("Database connection test result:", result);
+    
+    console.log("Attempting to fetch emails from database...");
     const emails = await prisma.email.findMany({
       orderBy: {
         id: 'asc'
@@ -15,13 +22,38 @@ export async function GET() {
     });
     
     console.log("Successfully fetched emails:", emails.length);
+    console.log("Email data:", JSON.stringify(emails, null, 2));
+    
+    // If no emails exist, let's create a sample one for testing
+    if (emails.length === 0) {
+      console.log("No emails found, creating sample email...");
+      const sampleEmail = await prisma.email.create({
+        data: {
+          email: "test@example.com"
+        }
+      });
+      console.log("Created sample email:", sampleEmail);
+      
+      // Fetch again after creating sample
+      const updatedEmails = await prisma.email.findMany({
+        orderBy: {
+          id: 'asc'
+        }
+      });
+      console.log("Updated email list:", updatedEmails);
+      return NextResponse.json(updatedEmails);
+    }
+    
     return NextResponse.json(emails);
   } catch (error) {
+    console.error("=== EMAIL API ERROR ===");
     console.error("Error fetching emails:", error);
     
     let errorMessage = "Failed to fetch emails";
     if (error instanceof Error) {
       errorMessage = error.message;
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
     }
     
     return NextResponse.json({ 
