@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     // ส่งอีเมลแจ้งเตือนหากมีการตรวจพบคน (confidence > 0.5)
     if (confidence && confidence > 0.5) {
       try {
-        await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/test-email`, {
+        await fetch(`https://alertemail.vercel.app/api/test-email`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
