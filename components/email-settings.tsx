@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Mail, Plus, Trash2, Loader2, Send } from "lucide-react"
+import { Mail, Plus, Trash2, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Email {
@@ -17,7 +17,7 @@ export function EmailSettings() {
   const [emails, setEmails] = useState<{ id: number | string; email: string }[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false)
+
   const { toast } = useToast()
 
   useEffect(() => {
@@ -101,51 +101,7 @@ export function EmailSettings() {
     }
   }
 
-  const handleTestEmail = async () => {
-    const savedEmails = emails.filter(e => typeof e.id === 'number' && e.email.trim())
-    
-    if (savedEmails.length === 0) {
-      toast({
-        title: "ไม่มีอีเมลที่บันทึกแล้ว",
-        description: "กรุณาเพิ่มและบันทึกอีเมลก่อนทดสอบ",
-        variant: "destructive",
-      })
-      return
-    }
 
-    setIsSendingTestEmail(true)
-    
-    try {
-      const response = await fetch("/api/test-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          testMessage: "การทดสอบระบบแจ้งเตือนจาก ESP32 Setup - ระบบทำงานปกติ ✅"
-        }),
-      })
-
-      const result = await response.json()
-
-      if (response.ok) {
-        toast({
-          title: "ส่งอีเมลทดสอบสำเร็จ! 📧",
-          description: `ส่งไปยัง ${result.details.recipientCount} อีเมล`,
-        })
-      } else {
-        throw new Error(result.error || "Failed to send test email")
-      }
-    } catch (error) {
-      toast({
-        title: "ส่งอีเมลทดสอบไม่สำเร็จ",
-        description: error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการส่งอีเมล",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSendingTestEmail(false)
-    }
-  }
 
   return (
     <Card className="w-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm">
@@ -215,26 +171,7 @@ export function EmailSettings() {
         )}
       </CardContent>
       
-      <CardFooter className="border-t border-gray-100 dark:border-gray-700 pt-8 flex justify-between gap-4">
-        <Button 
-          onClick={handleTestEmail} 
-          disabled={isSendingTestEmail}
-          variant="outline"
-          className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:border-green-700 dark:text-green-400 px-6 py-3"
-        >
-          {isSendingTestEmail ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ส่งทดสอบ...
-            </>
-          ) : (
-            <>
-              <Send className="mr-2 h-4 w-4" />
-              ทดสอบอีเมล
-            </>
-          )}
-        </Button>
-        
+      <CardFooter className="border-t border-gray-100 dark:border-gray-700 pt-8 flex justify-end">
         <Button 
           onClick={handleSave} 
           disabled={isSaving}
