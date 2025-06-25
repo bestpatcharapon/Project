@@ -8,7 +8,7 @@ const char* ssid = "gyeOul";
 const char* password = "kittipong98";
 
 // Web Application Configuration
-const char* webAppURL = "https://your-web-app-domain.vercel.app/api/detection"; // แก้ไข URL ตามจริง
+const char* webAppURL = "https://alertemail.vercel.app/api/detection"; // URL ของเว็บแอปพลิเคชันจริง
 
 // Web server on port 80
 WebServer server(80);
