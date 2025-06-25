@@ -64,17 +64,20 @@ static camera_config_t camera_config = {
 };
 
 // Network Configuration
-const char* ssid = "gyeOul";
-const char* password = "kittipong98";
-// เปลี่ยนเป็น URL ของเว็บแอปพลิเคชัน
-const char* webAppURL = "https://your-web-app-domain.vercel.app/api/detection"; // แก้ไข URL ตามจริง
+const char* ssid = "Kanchada_2.4G";  // แก้ไขเป็น WiFi ของคุณ
+const char* password = "kan123456789";  // แก้ไขเป็นรหัสผ่าน WiFi ของคุณ
+
+// ESP32 #2 Gateway Configuration (ส่งข้อมูลไปยัง ESP32 #2)
+const char* esp32GatewayIP = "192.168.1.100"; // IP ของ ESP32 #2 (ต้องดูจาก Serial Monitor ของ ESP32 #2)
+const int esp32GatewayPort = 80;
+String gatewayURL = "http://" + String(esp32GatewayIP) + "/detection";
 
 unsigned long last_capture_time = 0;
 const unsigned long capture_interval = 30000; // 30 วินาที
 
-void sendDetectionToWebApp(ei_impulse_result_t result) {
+void sendDetectionToGateway(ei_impulse_result_t result) {
     HTTPClient http;
-    http.begin(webAppURL);
+    http.begin(gatewayURL.c_str());
     http.addHeader("Content-Type", "application/json");
 
     // สร้าง JSON payload สำหรับเว็บแอปพลิเคชัน
@@ -115,17 +118,18 @@ void sendDetectionToWebApp(ei_impulse_result_t result) {
     String jsonString;
     serializeJson(doc, jsonString);
 
-    Serial.println("Sending detection data to web application:");
+    Serial.println("📤 Sending detection data to ESP32 Gateway:");
     Serial.println(jsonString);
 
     int httpResponseCode = http.POST(jsonString);
 
     if (httpResponseCode > 0) {
         String response = http.getString();
-        Serial.printf("✅ Data sent successfully. Response code: %d\n", httpResponseCode);
-        Serial.printf("Response: %s\n", response.c_str());
+        Serial.printf("✅ Data sent to gateway successfully. Response code: %d\n", httpResponseCode);
+        Serial.printf("Gateway response: %s\n", response.c_str());
     } else {
-        Serial.printf("❌ Error sending data: %s\n", http.errorToString(httpResponseCode).c_str());
+        Serial.printf("❌ Error sending to gateway: %s\n", http.errorToString(httpResponseCode).c_str());
+        Serial.println("💡 Make sure ESP32 #2 Gateway is running and check IP address");
     }
 
     http.end();
@@ -156,7 +160,8 @@ void setup() {
     }
 
     ei_printf("\n🔍 Starting human detection every 30 seconds...\n");
-    ei_printf("🌐 Sending data to web application: %s\n", webAppURL);
+    ei_printf("📡 Sending data to ESP32 Gateway: %s\n", gatewayURL.c_str());
+    ei_printf("⚠️  Make sure ESP32 #2 Gateway is running first!\n");
     ei_sleep(2000);
 }
 
@@ -190,8 +195,8 @@ void loop() {
             return;
         }
 
-        // ส่งข้อมูลไปยังเว็บแอปพลิเคชัน
-        sendDetectionToWebApp(result);
+        // ส่งข้อมูลไปยัง ESP32 Gateway
+        sendDetectionToGateway(result);
 
         // แสดงผลในหน้าจอ
         ei_printf("Predictions (DSP: %d ms., Classification: %d ms., Anomaly: %d ms.): \n",

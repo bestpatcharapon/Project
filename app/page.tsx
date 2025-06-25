@@ -39,6 +39,8 @@ export default function Dashboard() {
   const [isLoadingDetections, setIsLoadingDetections] = useState(true)
   const [currentPage, setCurrentPage] = useState<number>(0)
   const [totalPages, setTotalPages] = useState<number>(0)
+  const [isShowingTodayData, setIsShowingTodayData] = useState<boolean>(false)
+  const [dataMessage, setDataMessage] = useState<string>('')
   
   const ITEMS_PER_PAGE = 6
 
@@ -56,9 +58,9 @@ export default function Dashboard() {
     return () => clearInterval(fetchInterval)
   }, [])
 
-  // Auto-pagination effect - เปลี่ยนหน้าทุก 1 วัน
+  // Auto-pagination effect - เปลี่ยนหน้าเฉพาะถ้ามีข้อมูลวันนี้มากกว่า 1 หน้า
   useEffect(() => {
-    if (totalPages <= 1) return
+    if (totalPages <= 1 || !isShowingTodayData) return
 
     const pageInterval = setInterval(() => {
       setCurrentPage((prevPage) => {
@@ -66,10 +68,10 @@ export default function Dashboard() {
         fetchDetections(nextPage)
         return nextPage
       })
-    }, 24 * 60 * 60 * 1000) // 24 ชั่วโมง = 86400000 มิลลิวินาที
+    }, 60000) // เปลี่ยนหน้าทุก 1 นาที (สำหรับข้อมูลวันนี้)
 
     return () => clearInterval(pageInterval)
-  }, [totalPages])
+  }, [totalPages, isShowingTodayData])
 
   const fetchEmailCount = async () => {
     setIsLoadingEmails(true)
@@ -117,6 +119,8 @@ export default function Dashboard() {
         setTotalDetectionCount(data.totalCount)
         setTotalPages(data.totalPages)
         setCurrentPage(data.currentPage)
+        setIsShowingTodayData(data.isShowingTodayData)
+        setDataMessage(data.message || '')
       } else {
         console.error("Failed to fetch detections:", response.status)
       }
@@ -164,36 +168,7 @@ export default function Dashboard() {
     return "text-red-600 dark:text-red-400"
   }
 
-    const createSampleData = async () => {
-    try {
-      console.log("Creating sample data...")
-      const response = await fetch("/api/detection", {
-        method: "GET"
-      })
-      
-      console.log("Response status:", response.status)
-
-      if (response.ok) {
-        const result = await response.json()
-        console.log("Sample data created:", result)
-        alert(`สร้างข้อมูลตัวอย่างสำเร็จ! จำนวน ${result.created_records} รายการ`)
-        
-        // รีเฟรชข้อมูลหลังจากสร้างข้อมูลตัวอย่าง
-        setTimeout(() => {
-          fetchDetections()
-          fetchEmailCount()
-          fetchVisitorCount()
-        }, 1000)
-      } else {
-        const errorText = await response.text()
-        console.error("Failed to create sample data:", errorText)
-        alert("ไม่สามารถสร้างข้อมูลตัวอย่างได้: " + errorText)
-      }
-    } catch (error) {
-      console.error("Error creating sample data:", error)
-      alert("เกิดข้อผิดพลาดในการสร้างข้อมูลตัวอย่าง: " + (error instanceof Error ? error.message : String(error)))
-    }
-  }
+  
 
 
 
@@ -230,7 +205,7 @@ export default function Dashboard() {
                 )}
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                จำนวนอีเมลในระบบ
+                ที่ลงทะเบียนไว้
               </p>
             </CardContent>
           </Card>
@@ -247,16 +222,10 @@ export default function Dashboard() {
                 ) : (
                   todayDetectionCount
                 )}
-                </div>
+              </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                จำนวนครั้งที่ตรวจพบ
+                {isShowingTodayData ? 'การตรวจจับวันนี้' : 'ยังไม่มีข้อมูลวันนี้'}
               </p>
-              {todayDetectionCount > 0 && !isLoadingDetections && (
-                <div className="mt-2 flex items-center text-xs text-green-600 dark:text-green-400">
-                  <div className="w-1 h-1 bg-green-500 rounded-full mr-1 animate-pulse"></div>
-                  อัปเดตล่าสุด
-                </div>
-              )}
             </CardContent>
           </Card>
 
@@ -282,12 +251,14 @@ export default function Dashboard() {
           <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-300">สถานะระบบ</CardTitle>
-              <div className="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full animate-pulse"></div>
+              <div className={`w-2 h-2 rounded-full animate-pulse ${isShowingTodayData ? 'bg-green-500 dark:bg-green-400' : 'bg-yellow-500 dark:bg-yellow-400'}`}></div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">ออนไลน์</div>
+              <div className={`text-2xl font-bold ${isShowingTodayData ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
+                {isShowingTodayData ? 'Live' : 'Archive'}
+              </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                ระบบทำงานปกติ
+                {isShowingTodayData ? 'แสดงข้อมูลวันนี้' : 'แสดงข้อมูลเก่า'}
               </p>
             </CardContent>
           </Card>
@@ -298,13 +269,12 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">การตรวจจับล่าสุด</h2>
-              <p className="text-gray-600 dark:text-gray-400">ข้อมูลการตรวจจับจาก ESP32 Camera</p>
-
+              <p className="text-gray-600 dark:text-gray-400">{dataMessage}</p>
             </div>
             <div className="flex items-center space-x-3">
-              <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+              <Badge variant="outline" className={`${isShowingTodayData ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'}`}>
                 <Eye className="w-3 h-3 mr-1" />
-                {totalDetectionCount} รายการ
+                {isShowingTodayData ? `วันนี้: ${todayDetectionCount}` : `รวม: ${totalDetectionCount}`} รายการ
               </Badge>
               {totalPages > 1 && (
                 <div className="flex items-center space-x-1">
@@ -365,8 +335,12 @@ export default function Dashboard() {
               <CardContent className="p-12">
                 <div className="text-center text-gray-500 dark:text-gray-400">
                   <Activity className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                  <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">ยังไม่มีข้อมูลการตรวจจับ</h3>
-                  <p className="text-sm">ข้อมูลจะแสดงที่นี่เมื่อ ESP32 ส่งข้อมูลการตรวจจับมา</p>
+                  <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
+                    {isShowingTodayData ? 'ยังไม่มีข้อมูลการตรวจจับวันนี้' : 'ยังไม่มีข้อมูลการตรวจจับ'}
+                  </h3>
+                  <p className="text-sm">
+                    {isShowingTodayData ? 'รอการตรวจจับจาก ESP32' : 'ข้อมูลจะแสดงที่นี่เมื่อ ESP32 ส่งข้อมูลการตรวจจับมา'}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -475,13 +449,7 @@ export default function Dashboard() {
                  <Activity className="w-4 h-4 mr-2" />
                  รีเฟรชข้อมูลการตรวจจับ
               </Button>
-              <Button
-                 onClick={createSampleData}
-                 className="w-full justify-start bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800"
-               >
-                 <Zap className="w-4 h-4 mr-2" />
-                 สร้างข้อมูลตัวอย่าง
-              </Button>
+
           </CardContent>
         </Card>
 

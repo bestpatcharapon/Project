@@ -4,8 +4,8 @@
 #include <HTTPClient.h>
 
 // Network Configuration
-const char* ssid = "gyeOul";
-const char* password = "kittipong98";
+const char* ssid = "Kanchada_2.4G";  // ใช้ WiFi เดียวกับ ESP32 #1
+const char* password = "kan123456789";  // รหัสผ่าน WiFi เดียวกัน
 
 // Web Application Configuration
 const char* webAppURL = "https://alertemail.vercel.app/api/detection"; // URL ของเว็บแอปพลิเคชันจริง

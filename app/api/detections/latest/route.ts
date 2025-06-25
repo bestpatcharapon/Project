@@ -11,25 +11,63 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '6')
     const skip = page * limit
 
-    // ดึงข้อมูลการตรวจจับทั้งหมด (สำหรับนับจำนวน)
-    const totalDetections = await prisma.general_information.count()
+    // คำนวณช่วงเวลาสำหรับวันปัจจุบัน (ใช้เขตเวลาท้องถิ่น)
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const tomorrowStart = new Date(todayStart)
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1)
 
-    // ดึงข้อมูลการตรวจจับตาม pagination (เรียงจากเก่าไปใหม่)
-    const latestDetections = await prisma.general_information.findMany({
+    console.log('Today range:', todayStart, 'to', tomorrowStart)
+
+    // นับจำนวนการตรวจจับของวันนี้
+    const todayDetectionCount = await prisma.general_information.count({
+      where: {
+        detection_time: {
+          gte: todayStart,
+          lt: tomorrowStart
+        }
+      }
+    })
+
+    // ดึงข้อมูลการตรวจจับของวันนี้เป็นหลัก
+    let latestDetections = await prisma.general_information.findMany({
+      where: {
+        detection_time: {
+          gte: todayStart,
+          lt: tomorrowStart
+        }
+      },
       orderBy: {
-        detection_time: 'asc' // เรียงจากเก่าไปใหม่
+        detection_time: 'desc' // เรียงจากใหม่ไปเก่า
       },
       skip: skip,
       take: limit
     })
 
-    // ดึงข้อมูล performance ตาม pagination
+    // ถ้าข้อมูลวันนี้ไม่พอ ให้เติมด้วยข้อมูลล่าสุดจากวันก่อน
+    if (latestDetections.length < limit) {
+      const remainingCount = limit - latestDetections.length
+      const oldDetections = await prisma.general_information.findMany({
+        where: {
+          detection_time: {
+            lt: todayStart // ก่อนวันนี้
+          }
+        },
+        orderBy: {
+          detection_time: 'desc'
+        },
+        take: remainingCount
+      })
+      
+      latestDetections = [...latestDetections, ...oldDetections]
+    }
+
+    // ดึงข้อมูล performance ที่สอดคล้องกับการตรวจจับ
     const performanceData = await prisma.processing_Performance.findMany({
       orderBy: {
-        id: 'asc'
+        id: 'desc'
       },
-      skip: skip,
-      take: limit
+      take: latestDetections.length
     })
 
     // รวมข้อมูล detection กับ performance
@@ -38,27 +76,9 @@ export async function GET(request: NextRequest) {
       processing_performance: performanceData[index] ? [performanceData[index]] : []
     }))
 
-    // นับจำนวนการตรวจจับวันนี้ (ใช้เขตเวลา UTC)
-    const now = new Date()
-    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-    const tomorrowUTC = new Date(todayUTC)
-    tomorrowUTC.setUTCDate(tomorrowUTC.getUTCDate() + 1)
-
-    console.log('Today UTC:', todayUTC)
-    console.log('Tomorrow UTC:', tomorrowUTC)
-
-    const todayCount = await prisma.general_information.count({
-      where: {
-        detection_time: {
-          gte: todayUTC,
-          lt: tomorrowUTC
-        }
-      }
-    })
-
-    console.log('Today count:', todayCount)
-
-    // คำนวณจำนวนการตรวจจับในแต่ละช่วงเวลา
+    // คำนวณสถิติต่างๆ
+    const totalDetections = await prisma.general_information.count()
+    
     const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000)
     const last24HoursCount = await prisma.general_information.count({
       where: {
@@ -68,14 +88,31 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
-      latestDetections: detectionsWithPerformance,
-      todayCount,
+    // สำหรับการแสดงผล pagination ใช้ข้อมูลวันนี้เป็นหลัก
+    const todayTotalPages = Math.ceil(todayDetectionCount / limit)
+    const actualTotalPages = todayTotalPages > 0 ? todayTotalPages : Math.ceil(totalDetections / limit)
+
+    console.log('API Response:', {
+      detectionsCount: detectionsWithPerformance.length,
+      todayCount: todayDetectionCount,
       last24HoursCount,
       totalCount: totalDetections,
       currentPage: page,
-      totalPages: Math.ceil(totalDetections / limit),
-      itemsPerPage: limit
+      totalPages: actualTotalPages
+    })
+
+    return NextResponse.json({
+      latestDetections: detectionsWithPerformance,
+      todayCount: todayDetectionCount,
+      last24HoursCount,
+      totalCount: totalDetections,
+      currentPage: page,
+      totalPages: actualTotalPages,
+      itemsPerPage: limit,
+      isShowingTodayData: todayDetectionCount > 0, // บอกว่าแสดงข้อมูลวันนี้หรือไม่
+      message: todayDetectionCount > 0 ? 
+        `แสดงข้อมูลการตรวจจับของวันนี้ (${todayDetectionCount} รายการ)` : 
+        'ยังไม่มีข้อมูลการตรวจจับวันนี้ แสดงข้อมูลล่าสุด'
     })
   } catch (error) {
     console.error('Error fetching detections:', error)
