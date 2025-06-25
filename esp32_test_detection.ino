@@ -6,8 +6,8 @@
 const char* ssid = "gyeOul";  // แก้ไขเป็น WiFi ของคุณ
 const char* password = "kittipong98";  // แก้ไขเป็นรหัสผ่าน WiFi ของคุณ
 
-// Web Application URL - ใช้ URL ที่มี API จริง
-const char* webAppURL = "https://webemail-sigma.vercel.app/api/detection"; // หรือ URL ที่มี API จริง
+// Web Application URL
+const char* webAppURL = "https://alertemail.vercel.app/api/detection";
 
 void setup() {
     Serial.begin(115200);
