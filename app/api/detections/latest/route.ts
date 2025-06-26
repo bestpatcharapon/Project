@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // ดึงข้อมูลการตรวจจับของวันนี้เป็นหลัก
-    let latestDetections = await prisma.general_information.findMany({
+    // ดึงข้อมูลการตรวจจับของวันนี้เท่านั้น
+    const latestDetections = await prisma.general_information.findMany({
       where: {
         detection_time: {
           gte: todayStart,
@@ -43,24 +43,6 @@ export async function GET(request: NextRequest) {
       skip: skip,
       take: limit
     })
-
-    // ถ้าข้อมูลวันนี้ไม่พอ ให้เติมด้วยข้อมูลล่าสุดจากวันก่อน
-    if (latestDetections.length < limit) {
-      const remainingCount = limit - latestDetections.length
-      const oldDetections = await prisma.general_information.findMany({
-        where: {
-          detection_time: {
-            lt: todayStart // ก่อนวันนี้
-          }
-        },
-        orderBy: {
-          detection_time: 'desc'
-        },
-        take: remainingCount
-      })
-      
-      latestDetections = [...latestDetections, ...oldDetections]
-    }
 
     // ดึงข้อมูล performance ที่สอดคล้องกับการตรวจจับ
     const performanceData = await prisma.processing_Performance.findMany({
@@ -88,9 +70,8 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // สำหรับการแสดงผล pagination ใช้ข้อมูลวันนี้เป็นหลัก
+    // สำหรับการแสดงผล pagination ใช้ข้อมูลวันนี้เท่านั้น
     const todayTotalPages = Math.ceil(todayDetectionCount / limit)
-    const actualTotalPages = todayTotalPages > 0 ? todayTotalPages : Math.ceil(totalDetections / limit)
 
     console.log('API Response:', {
       detectionsCount: detectionsWithPerformance.length,
@@ -98,7 +79,7 @@ export async function GET(request: NextRequest) {
       last24HoursCount,
       totalCount: totalDetections,
       currentPage: page,
-      totalPages: actualTotalPages
+      totalPages: todayTotalPages
     })
 
     return NextResponse.json({
@@ -107,12 +88,12 @@ export async function GET(request: NextRequest) {
       last24HoursCount,
       totalCount: totalDetections,
       currentPage: page,
-      totalPages: actualTotalPages,
+      totalPages: todayTotalPages,
       itemsPerPage: limit,
-      isShowingTodayData: todayDetectionCount > 0, // บอกว่าแสดงข้อมูลวันนี้หรือไม่
+      isShowingTodayData: true, // แสดงเฉพาะข้อมูลวันนี้เสมอ
       message: todayDetectionCount > 0 ? 
         `แสดงข้อมูลการตรวจจับของวันนี้ (${todayDetectionCount} รายการ)` : 
-        'ยังไม่มีข้อมูลการตรวจจับวันนี้ แสดงข้อมูลล่าสุด'
+        'ยังไม่มีข้อมูลการตรวจจับวันนี้'
     })
   } catch (error) {
     console.error('Error fetching detections:', error)
