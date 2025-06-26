@@ -105,27 +105,30 @@ export async function GET() {
     // ดึงข้อมูลการตรวจจับรายชั่วโมงของวันนี้ (แสดงผลในรูปแบบที่อ่านง่าย)
     const hourlyData = []
     const todayStartThailand = new Date(todayThailand.getFullYear(), todayThailand.getMonth(), todayThailand.getDate())
-    const todayStartUTC = new Date(todayStartThailand.getTime() - thailandOffset)
 
-    // สร้างข้อมูลรายชั่วโมงพร้อมรายละเอียดเวลา
+    // สร้างข้อมูลรายชั่วโมงพร้อมรายละเอียดเวลา (ใช้เวลาไทย)
     for (let hour = 0; hour < 24; hour++) {
-      const hourStart = new Date(todayStartUTC)
-      hourStart.setHours(hour)
-      const hourEnd = new Date(hourStart)
-      hourEnd.setHours(hour + 1)
+      // สร้างช่วงเวลาในไทย
+      const hourStartThailand = new Date(todayStartThailand)
+      hourStartThailand.setHours(hour)
+      const hourEndThailand = new Date(hourStartThailand)
+      hourEndThailand.setHours(hour + 1)
+      
+      // แปลงเป็น UTC สำหรับ database query
+      const hourStartUTC = new Date(hourStartThailand.getTime() - thailandOffset)
+      const hourEndUTC = new Date(hourEndThailand.getTime() - thailandOffset)
 
       const hourCount = await prisma.general_information.count({
         where: {
           detection_time: {
-            gte: hourStart,
-            lt: hourEnd
+            gte: hourStartUTC,
+            lt: hourEndUTC
           }
         }
       })
 
-      // สร้างป้ายเวลาที่อ่านง่าย
+      // สร้างป้ายเวลาที่อ่านง่าย (เวลาไทย)
       const timeLabel = hour.toString().padStart(2, '0') + ':00'
-      const periodLabel = hour < 12 ? 'น.' : 'น.'
       const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
       const period = hour < 12 ? 'AM' : 'PM'
       
