@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { PrismaClient } from '@/lib/generated/prisma'
+
+const prisma = new PrismaClient()
 
 export async function GET(request: NextRequest) {
   try {
@@ -6,80 +9,99 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '0')
     const limit = parseInt(searchParams.get('limit') || '6')
+    const skip = page * limit
 
-    // ใช้ข้อมูลคงที่แทนการเชื่อมต่อ database เพื่อความสอดคล้อง
-    const today = new Date()
+    // แก้ปัญหา timezone โดยใช้ UTC และแปลงให้ถูกต้อง
+    const now = new Date()
     
-    // ข้อมูลตัวอย่างที่คงที่
-    const mockDetections = [
-      {
-        id: 1,
-        device_id: "ESP32_001",
-        location: "ประตูหน้า",
-        detection_time: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 14, 30, 0),
-        processing_performance: [{
-          id: 1,
-          dsp_time: 85,
-          classification_time: 120,
-          anomaly_time: 95
-        }]
-      },
-      {
-        id: 2,
-        device_id: "ESP32_002", 
-        location: "ประตูหลัง",
-        detection_time: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 10, 15, 0),
-        processing_performance: [{
-          id: 2,
-          dsp_time: 92,
-          classification_time: 110,
-          anomaly_time: 88
-        }]
-      },
-      {
-        id: 3,
-        device_id: "ESP32_001",
-        location: "ประตูหน้า",
-        detection_time: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 8, 45, 0),
-        processing_performance: [{
-          id: 3,
-          dsp_time: 78,
-          classification_time: 105,
-          anomaly_time: 92
-        }]
+    // สำหรับ Thailand (UTC+7), เราต้องปรับเวลาให้ถูกต้อง
+    const thailandOffset = 7 * 60 * 60 * 1000 // 7 hours in milliseconds
+    const thailandNow = new Date(now.getTime() + thailandOffset)
+    
+    // คำนวณช่วงเวลาสำหรับวันปัจจุบันในเขตเวลาไทย
+    const todayStart = new Date(thailandNow.getFullYear(), thailandNow.getMonth(), thailandNow.getDate())
+    const tomorrowStart = new Date(todayStart)
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1)
+    
+    // แปลงกลับเป็น UTC สำหรับ database query
+    const todayStartUTC = new Date(todayStart.getTime() - thailandOffset)
+    const tomorrowStartUTC = new Date(tomorrowStart.getTime() - thailandOffset)
+
+    console.log('Thailand time range:', todayStart, 'to', tomorrowStart)
+    console.log('UTC time range for query:', todayStartUTC, 'to', tomorrowStartUTC)
+
+    // นับจำนวนการตรวจจับของวันนี้
+    const todayDetectionCount = await prisma.general_information.count({
+      where: {
+        detection_time: {
+          gte: todayStartUTC,
+          lt: tomorrowStartUTC
+        }
       }
-    ]
+    })
 
-    // คงที่: จำนวนการตรวจจับวันนี้
-    const todayDetectionCount = 3
-    const last24HoursCount = 5
-    const totalDetections = 15
+    // ดึงข้อมูลการตรวจจับของวันนี้เท่านั้น
+    const latestDetections = await prisma.general_information.findMany({
+      where: {
+        detection_time: {
+          gte: todayStartUTC,
+          lt: tomorrowStartUTC
+        }
+      },
+      orderBy: {
+        detection_time: 'desc' // เรียงจากใหม่ไปเก่า
+      },
+      skip: skip,
+      take: limit
+    })
 
-    // Pagination สำหรับข้อมูลตัวอย่าง
-    const startIndex = page * limit
-    const endIndex = startIndex + limit
-    const paginatedDetections = mockDetections.slice(startIndex, endIndex)
+    // ดึงข้อมูล performance ที่สอดคล้องกับการตรวจจับ
+    const performanceData = await prisma.processing_Performance.findMany({
+      orderBy: {
+        id: 'desc'
+      },
+      take: latestDetections.length
+    })
+
+    // รวมข้อมูล detection กับ performance
+    const detectionsWithPerformance = latestDetections.map((detection, index) => ({
+      ...detection,
+      processing_performance: performanceData[index] ? [performanceData[index]] : []
+    }))
+
+    // คำนวณสถิติต่างๆ
+    const totalDetections = await prisma.general_information.count()
     
-    const totalPages = Math.ceil(mockDetections.length / limit)
+    const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    const last24HoursCount = await prisma.general_information.count({
+      where: {
+        detection_time: {
+          gte: last24Hours
+        }
+      }
+    })
 
-    console.log('API Response (Fixed Data):', {
-      detectionsCount: paginatedDetections.length,
+    // สำหรับการแสดงผล pagination ใช้ข้อมูลวันนี้เท่านั้น
+    const todayTotalPages = Math.ceil(todayDetectionCount / limit)
+
+    console.log('API Response:', {
+      detectionsCount: detectionsWithPerformance.length,
       todayCount: todayDetectionCount,
       last24HoursCount,
       totalCount: totalDetections,
       currentPage: page,
-      totalPages: totalPages
+      totalPages: todayTotalPages
     })
 
     return NextResponse.json({
-      latestDetections: paginatedDetections,
+      latestDetections: detectionsWithPerformance,
       todayCount: todayDetectionCount,
       last24HoursCount,
       totalCount: totalDetections,
       currentPage: page,
-      totalPages: totalPages,
+      totalPages: todayTotalPages,
       itemsPerPage: limit,
-      isShowingTodayData: true,
+      isShowingTodayData: true, // แสดงเฉพาะข้อมูลวันนี้เสมอ
       message: todayDetectionCount > 0 ? 
         `แสดงข้อมูลการตรวจจับของวันนี้ (${todayDetectionCount} รายการ)` : 
         'ยังไม่มีข้อมูลการตรวจจับวันนี้'
