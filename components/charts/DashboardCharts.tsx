@@ -10,7 +10,13 @@ interface ChartData {
   detectionTrends: Array<{ date: string; detections: number }>
   performanceData: Array<{ index: number; dsp_time: number; classification_time: number; anomaly_time: number }>
   visitorTrends: Array<{ date: string; visitors: number }>
-  hourlyData: Array<{ hour: string; detections: number }>
+  hourlyData: Array<{ 
+    hour: string; 
+    hourDisplay?: string; 
+    timeSlot?: string; 
+    detections: number; 
+    period?: string 
+  }>
 }
 
 const chartConfig = {
@@ -152,23 +158,46 @@ export function DashboardCharts() {
               แนวโน้มการตรวจจับ
             </CardTitle>
             <CardDescription className="text-sm text-gray-600 dark:text-gray-400">
-              7 วันที่ผ่านมา
+              30 วันที่ผ่านมา
             </CardDescription>
           </div>
           <TrendingUp className="h-4 w-4 text-blue-500 dark:text-blue-400" />
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-48">
-            <LineChart data={chartData.detectionTrends}>
+            <LineChart data={chartData.detectionTrends} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
               <XAxis 
                 dataKey="date" 
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 10, fill: 'currentColor' }}
                 axisLine={false}
                 tickLine={false}
+                interval={Math.floor(chartData.detectionTrends.length / 6)} // แสดงประมาณ 6-7 วัน
+                angle={-45}
+                textAnchor="end"
+                height={50}
               />
-              <YAxis hide />
+              <YAxis 
+                tick={{ fontSize: 10, fill: 'currentColor' }}
+                axisLine={false}
+                tickLine={false}
+                domain={[0, 'dataMax + 1']}
+              />
               <ChartTooltip 
-                content={<ChartTooltipContent />} 
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                        <p className="font-medium text-gray-900 dark:text-gray-100">
+                          วันที่: {label}
+                        </p>
+                        <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                          การตรวจจับ: {payload[0].value} ครั้ง
+                        </p>
+                      </div>
+                    )
+                  }
+                  return null
+                }}
                 cursor={{ stroke: 'hsl(var(--chart-1))', strokeWidth: 1 }}
               />
               <Line
@@ -176,8 +205,8 @@ export function DashboardCharts() {
                 dataKey="detections"
                 stroke="hsl(var(--chart-1))"
                 strokeWidth={2}
-                dot={{ fill: 'hsl(var(--chart-1))', strokeWidth: 0, r: 3 }}
-                activeDot={{ r: 5, stroke: 'hsl(var(--chart-1))', strokeWidth: 2 }}
+                dot={{ fill: 'hsl(var(--chart-1))', strokeWidth: 0, r: 2 }}
+                activeDot={{ r: 4, stroke: 'hsl(var(--chart-1))', strokeWidth: 2 }}
               />
             </LineChart>
           </ChartContainer>
@@ -192,23 +221,46 @@ export function DashboardCharts() {
               สถิติผู้เข้าชม
             </CardTitle>
             <CardDescription className="text-sm text-gray-600 dark:text-gray-400">
-              7 วันที่ผ่านมา
+              30 วันที่ผ่านมา
             </CardDescription>
           </div>
           <Users className="h-4 w-4 text-purple-500 dark:text-purple-400" />
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-48">
-            <AreaChart data={chartData.visitorTrends}>
+            <AreaChart data={chartData.visitorTrends} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
               <XAxis 
                 dataKey="date" 
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 10, fill: 'currentColor' }}
                 axisLine={false}
                 tickLine={false}
+                interval={Math.floor(chartData.visitorTrends.length / 6)} // แสดงประมาณ 6-7 วัน
+                angle={-45}
+                textAnchor="end"
+                height={50}
               />
-              <YAxis hide />
+              <YAxis 
+                tick={{ fontSize: 10, fill: 'currentColor' }}
+                axisLine={false}
+                tickLine={false}
+                domain={[0, 'dataMax + 5']}
+              />
               <ChartTooltip 
-                content={<ChartTooltipContent />} 
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                        <p className="font-medium text-gray-900 dark:text-gray-100">
+                          วันที่: {label}
+                        </p>
+                        <p className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                          ผู้เข้าชม: {payload[0].value} คน
+                        </p>
+                      </div>
+                    )
+                  }
+                  return null
+                }}
                 cursor={{ stroke: 'hsl(var(--chart-2))', strokeWidth: 1 }}
               />
               <Area
@@ -216,7 +268,7 @@ export function DashboardCharts() {
                 dataKey="visitors"
                 stroke="hsl(var(--chart-2))"
                 fill="hsl(var(--chart-2))"
-                fillOpacity={0.1}
+                fillOpacity={0.15}
                 strokeWidth={2}
               />
             </AreaChart>
@@ -282,27 +334,55 @@ export function DashboardCharts() {
               กิจกรรมรายชั่วโมง
             </CardTitle>
             <CardDescription className="text-sm text-gray-600 dark:text-gray-400">
-              การตรวจจับวันนี้
+              การตรวจจับวันนี้ (24 ชั่วโมง)
             </CardDescription>
           </div>
           <Clock className="h-4 w-4 text-orange-500 dark:text-orange-400" />
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-48">
-            <BarChart data={chartData.hourlyData}>
+            <BarChart data={chartData.hourlyData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
               <XAxis 
                 dataKey="hour" 
-                tick={{ fontSize: 10 }}
+                tick={{ fontSize: 9, fill: 'currentColor' }}
                 axisLine={false}
                 tickLine={false}
-                interval="preserveStartEnd"
+                interval={2} // แสดงทุก 3 ชั่วโมง
+                angle={-45}
+                textAnchor="end"
+                height={60}
               />
-              <YAxis hide />
-              <ChartTooltip content={<ChartTooltipContent />} />
+              <YAxis 
+                tick={{ fontSize: 10, fill: 'currentColor' }}
+                axisLine={false}
+                tickLine={false}
+                domain={[0, 'dataMax + 1']}
+              />
+              <ChartTooltip 
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload
+                    return (
+                      <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                        <p className="font-medium text-gray-900 dark:text-gray-100">
+                          {data.timeSlot || `${label} - ${(parseInt(label.split(':')[0]) + 1).toString().padStart(2, '0')}:00`}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          ช่วงเวลา: {data.period || 'ทั่วไป'}
+                        </p>
+                        <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                          การตรวจจับ: {payload[0].value} ครั้ง
+                        </p>
+                      </div>
+                    )
+                  }
+                  return null
+                }}
+              />
               <Bar
                 dataKey="detections"
                 fill="hsl(var(--chart-1))"
-                radius={[2, 2, 0, 0]}
+                radius={[3, 3, 0, 0]}
                 opacity={0.8}
               />
             </BarChart>
