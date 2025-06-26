@@ -6,11 +6,16 @@ const prisma = new PrismaClient()
 export async function GET() {
   try {
     const today = new Date()
+    // แก้ปัญหา timezone สำหรับ Thailand (UTC+7)
+    const thailandOffset = 7 * 60 * 60 * 1000
+    
+    // ใช้เวลาไทยในการสร้าง dates array
+    const todayThailand = new Date(today.getTime() + thailandOffset)
     const dates = []
     
-    // Generate dates for the last 30 days (1 month)
+    // Generate dates for the last 30 days (1 month) ใช้เวลาไทย
     for (let i = 29; i >= 0; i--) {
-      const date = new Date(today)
+      const date = new Date(todayThailand)
       date.setDate(date.getDate() - i)
       dates.push(date.toLocaleDateString('th-TH', { 
         month: 'short', 
@@ -18,23 +23,24 @@ export async function GET() {
       }))
     }
 
-    // แก้ปัญหา timezone สำหรับ Thailand (UTC+7)
-    const thailandOffset = 7 * 60 * 60 * 1000
-
     // ดึงข้อมูลการตรวจจับจริงจาก database สำหรับ 30 วันล่าสุด
     const detectionTrends = []
+    
+    // ใช้เวลาไทยปัจจุบันเป็นฐาน (ใช้ตัวแปรเดียวกัน)
+    const nowThailand = todayThailand
+    
     for (let i = 29; i >= 0; i--) {
-      const targetDate = new Date(today)
-      targetDate.setDate(targetDate.getDate() - i)
+      const targetDateThailand = new Date(nowThailand)
+      targetDateThailand.setDate(targetDateThailand.getDate() - i)
       
       // คำนวณช่วงเวลาสำหรับวันนั้นๆ ในเขตเวลาไทย
-      const dayStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate())
-      const dayEnd = new Date(dayStart)
-      dayEnd.setDate(dayEnd.getDate() + 1)
+      const dayStartThailand = new Date(targetDateThailand.getFullYear(), targetDateThailand.getMonth(), targetDateThailand.getDate())
+      const dayEndThailand = new Date(dayStartThailand)
+      dayEndThailand.setDate(dayEndThailand.getDate() + 1)
       
       // แปลงเป็น UTC สำหรับ database query
-      const dayStartUTC = new Date(dayStart.getTime() - thailandOffset)
-      const dayEndUTC = new Date(dayEnd.getTime() - thailandOffset)
+      const dayStartUTC = new Date(dayStartThailand.getTime() - thailandOffset)
+      const dayEndUTC = new Date(dayEndThailand.getTime() - thailandOffset)
 
       const count = await prisma.general_information.count({
         where: {
@@ -98,7 +104,6 @@ export async function GET() {
 
     // ดึงข้อมูลการตรวจจับรายชั่วโมงของวันนี้ (แสดงผลในรูปแบบที่อ่านง่าย)
     const hourlyData = []
-    const todayThailand = new Date(today.getTime() + thailandOffset)
     const todayStartThailand = new Date(todayThailand.getFullYear(), todayThailand.getMonth(), todayThailand.getDate())
     const todayStartUTC = new Date(todayStartThailand.getTime() - thailandOffset)
 
