@@ -48,8 +48,8 @@ export function DashboardCharts() {
 
   useEffect(() => {
     fetchChartData()
-    // Refresh data every 5 minutes
-    const interval = setInterval(fetchChartData, 5 * 60 * 1000)
+    // Refresh data every 30 seconds for real-time updates
+    const interval = setInterval(fetchChartData, 30 * 1000)
     return () => clearInterval(interval)
   }, [])
 
