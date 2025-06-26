@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Mail, Settings, Activity, Users, Loader2, MapPin, Clock, Zap, Eye, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
+import { DashboardCharts } from "@/components/charts/DashboardCharts"
 
 interface Email {
   id: number
@@ -258,6 +259,15 @@ export default function Dashboard() {
               </p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Charts Section */}
+        <div className="mb-8">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">สถิติและแนวโน้ม</h2>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">ข้อมูลการใช้งานและประสิทธิภาพของระบบ</p>
+          </div>
+          <DashboardCharts />
         </div>
 
         {/* Quick Actions */}
