@@ -6,14 +6,13 @@
 const char* ssid = "Kanchada_2.4G";        // แก้ไขเป็น WiFi ของคุณ
 const char* password = "kan123456789";      // แก้ไขเป็นรหัสผ่าน WiFi ของคุณ
 
-// Web Application URLs - Local Development Server
-// ✅ ใช้ IP ของคอมพิวเตอร์: 172.20.10.8 (จาก ipconfig)
-const char* detectionURL = "http://172.20.10.8:3000/api/detection";        
-const char* heartbeatURL = "http://172.20.10.8:3000/api/esp32/heartbeat";  
+// Web Application URLs - Production Server
+const char* detectionURL = "https://alertemail.vercel.app/api/detection";        
+const char* heartbeatURL = "https://alertemail.vercel.app/api/esp32/heartbeat";  
 
-// สำหรับ production (เมื่อ API พร้อมแล้ว)
-// const char* detectionURL = "https://alertemail.vercel.app/api/detection";
-// const char* heartbeatURL = "https://alertemail.vercel.app/api/esp32/heartbeat";
+// สำหรับ local development (ถ้าต้องการทดสอบ local)
+// const char* detectionURL = "http://172.20.10.8:3000/api/detection";
+// const char* heartbeatURL = "http://172.20.10.8:3000/api/esp32/heartbeat";
 
 // Timing variables
 unsigned long lastDetection = 0;
@@ -64,8 +63,8 @@ void sendTestDetection() {
     DynamicJsonDocument doc(1024);
     
     // General Information
-    doc["device_id"] = "ESP32_Camera_01";  // เปลี่ยนให้ตรงกับ Dashboard
-    doc["location"] = "Front Door (Test)";
+    doc["device_id"] = "ESP32_Main";  // ใช้ชื่อเดียวกับ heartbeat
+    doc["location"] = "Detection System (Test)";
     
     // Processing Performance (สุ่มเวลาการประมวลผล)
     doc["dsp_time"] = random(80, 150);           // 80-150ms
@@ -133,81 +132,45 @@ void sendTestDetection() {
 }
 
 void sendHeartbeat() {
-    Serial.println("\n💓 Sending Camera heartbeat...");
+    Serial.println("\n💓 Sending ESP32 heartbeat...");
+    Serial.printf("🔋 Free Memory: %d bytes\n", ESP.getFreeHeap());
     
-    // ส่ง Camera heartbeat
-    DynamicJsonDocument cameraDoc(512);
-    cameraDoc["device_id"] = "ESP32_Camera_01";  // ตรงกับ Dashboard
-    cameraDoc["timestamp"] = millis();
-    cameraDoc["location"] = "Front Door (Test)";
-    cameraDoc["version"] = "1.0.0-test";
-    cameraDoc["wifi_strength"] = WiFi.RSSI();
-    cameraDoc["uptime"] = millis() / 1000;
-    cameraDoc["free_heap"] = ESP.getFreeHeap();
-    cameraDoc["device_type"] = "camera";
-    cameraDoc["status"] = "testing";
+    DynamicJsonDocument doc(512);
+    doc["device_id"] = "ESP32_Main";  // ใช้ชื่อเดียว
+    doc["timestamp"] = millis();
+    doc["location"] = "Detection System (Test)";
+    doc["version"] = "1.0.0-test";
+    doc["wifi_strength"] = WiFi.RSSI();
+    doc["uptime"] = millis() / 1000;
+    doc["free_heap"] = ESP.getFreeHeap();
+    doc["device_type"] = "detection_system";
+    doc["status"] = "testing";
 
-    String cameraJson;
-    serializeJson(cameraDoc, cameraJson);
+    String jsonString;
+    serializeJson(doc, jsonString);
     
-    Serial.println("📤 Camera Heartbeat JSON:");
-    Serial.println(cameraJson);
+    Serial.println("📤 ESP32 Heartbeat JSON:");
+    Serial.println(jsonString);
 
-    HTTPClient http1;
-    http1.begin(heartbeatURL);
-    http1.addHeader("Content-Type", "application/json");
-    http1.setTimeout(15000);
+    HTTPClient http;
+    http.begin(heartbeatURL);
+    http.addHeader("Content-Type", "application/json");
+    http.setTimeout(15000);
 
-    int cameraResponse = http1.POST(cameraJson);
+    int response = http.POST(jsonString);
     
-    if (cameraResponse > 0) {
-        Serial.printf("✅ Camera Heartbeat Code: %d\n", cameraResponse);
-        if (cameraResponse == 200) {
-            Serial.println("💚 Camera should show Online");
+    if (response > 0) {
+        Serial.printf("✅ ESP32 Heartbeat Code: %d\n", response);
+        if (response == 200) {
+            Serial.println("💚 ESP32 should show Online");
+        } else {
+            Serial.printf("⚠️ ESP32 Response Error: %d\n", response);
         }
     } else {
-        Serial.printf("❌ Camera Heartbeat Error: %s\n", http1.errorToString(cameraResponse).c_str());
+        Serial.printf("❌ ESP32 Heartbeat Error: %s\n", http.errorToString(response).c_str());
+        printConnectionError(response);
     }
-    http1.end();
-
-    delay(1000); // รอ 1 วินาที
-
-    // ส่ง Gateway heartbeat
-    Serial.println("💓 Sending Gateway heartbeat...");
-    
-    DynamicJsonDocument gatewayDoc(512);
-    gatewayDoc["device_id"] = "ESP32_Gateway_02";  // ตรงกับ Dashboard
-    gatewayDoc["timestamp"] = millis();
-    gatewayDoc["location"] = "Network Gateway (Test)";
-    gatewayDoc["version"] = "1.0.0-test";
-    gatewayDoc["wifi_strength"] = WiFi.RSSI();
-    gatewayDoc["uptime"] = millis() / 1000;
-    gatewayDoc["free_heap"] = ESP.getFreeHeap();
-    gatewayDoc["device_type"] = "gateway";
-    gatewayDoc["status"] = "testing";
-
-    String gatewayJson;
-    serializeJson(gatewayDoc, gatewayJson);
-    
-    Serial.println("📤 Gateway Heartbeat JSON:");
-    Serial.println(gatewayJson);
-
-    HTTPClient http2;
-    http2.begin(heartbeatURL);
-    http2.addHeader("Content-Type", "application/json");
-    http2.setTimeout(15000);
-
-    int gatewayResponse = http2.POST(gatewayJson);
-    
-    if (gatewayResponse > 0) {
-        Serial.printf("✅ Gateway Heartbeat Code: %d\n", gatewayResponse);
-        if (gatewayResponse == 200) {
-            Serial.println("💚 Gateway should show Online");
-        }
-    } else {
-        Serial.printf("❌ Gateway Heartbeat Error: %s\n", http2.errorToString(gatewayResponse).c_str());
-    }
-    http2.end();
+    http.end();
     Serial.println();
 }
 
@@ -237,7 +200,7 @@ void printStatus() {
 void loop() {
     unsigned long currentTime = millis();
     
-    // ส่ง heartbeat ทุก 15 วินาที (เร็วขึ้น)
+    // ส่ง heartbeat ทุก 15 วินาที
     if (currentTime - lastHeartbeat >= 15000) {
         sendHeartbeat();
         lastHeartbeat = currentTime;
@@ -262,39 +225,41 @@ void loop() {
 void testAPIEndpoints() {
     Serial.println("\n🧪 Testing API endpoints...");
     
-    // ทดสอบ heartbeat API ด้วย GET request
-    Serial.println("📡 Testing heartbeat API...");
+    // ทดสอบ server connectivity ด้วย health check
+    Serial.println("📡 Testing server connectivity...");
     HTTPClient http;
-    http.begin(heartbeatURL);
+    String healthURL = "https://alertemail.vercel.app/api/health";
+    http.begin(healthURL.c_str());
     http.setTimeout(10000);
     
-    int getResponse = http.GET();
-    Serial.printf("GET %s -> Response: %d\n", heartbeatURL, getResponse);
+    int healthResponse = http.GET();
+    Serial.printf("GET %s -> Response: %d\n", healthURL.c_str(), healthResponse);
     
-    if (getResponse > 0) {
+    if (healthResponse > 0) {
         String response = http.getString();
-        Serial.println("Response: " + response);
+        Serial.println("Health Response: " + response);
     }
     http.end();
     
     delay(1000);
     
-    // ทดสอบ detection API ด้วย GET request
-    Serial.println("📡 Testing detection API...");
+    // ทดสอบ heartbeat API ด้วย simple GET (อาจจะได้ 405 แต่แสดงว่าเชื่อมต่อได้)
+    Serial.println("📡 Testing heartbeat endpoint...");
     HTTPClient http2;
-    http2.begin(detectionURL);
+    http2.begin(heartbeatURL);
     http2.setTimeout(10000);
     
-    int getResponse2 = http2.GET();
-    Serial.printf("GET %s -> Response: %d\n", detectionURL, getResponse2);
+    int getResponse = http2.GET();
+    Serial.printf("GET %s -> Response: %d\n", heartbeatURL, getResponse);
     
-    if (getResponse2 > 0) {
-        String response2 = http2.getString();
-        Serial.println("Response: " + response2);
+    if (getResponse > 0) {
+        String response = http2.getString();
+        Serial.println("Heartbeat Response: " + response);
     }
     http2.end();
     
     Serial.println("🔍 API Test completed. Check responses above.");
-    Serial.println("✅ Code 200 = OK, ❌ Code 404 = Not Found, ❌ Code 405 = Method Not Allowed");
+    Serial.println("✅ Code 200 = OK, ❌ Code 404 = Not Found, ❌ Code 405 = Method Not Allowed (but connected)");
+    Serial.println("💡 Code 405 is OK for POST-only endpoints when testing with GET");
     Serial.println();
 } 

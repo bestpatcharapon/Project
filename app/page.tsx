@@ -43,23 +43,14 @@ export default function Dashboard() {
   const [isShowingTodayData, setIsShowingTodayData] = useState<boolean>(false)
   const [dataMessage, setDataMessage] = useState<string>('')
   const [esp32Status, setEsp32Status] = useState<{
-    camera: {
-      online: boolean
-      lastSeen: string | null
-      location?: string
-      device_type?: string
-      uptime?: number
-    }
-    gateway: {
-      online: boolean
-      lastSeen: string | null
-      location?: string
-      device_type?: string
-      uptime?: number
-    }
+    online: boolean
+    lastSeen: string | null
+    location?: string
+    device_type?: string
+    uptime?: number
   }>({
-    camera: { online: false, lastSeen: null },
-    gateway: { online: false, lastSeen: null }
+    online: false,
+    lastSeen: null
   })
   const [isLoadingEsp32, setIsLoadingEsp32] = useState(true)
   
@@ -164,24 +155,17 @@ export default function Dashboard() {
   const fetchEsp32Status = async () => {
     setIsLoadingEsp32(true)
     try {
-      // ตรวจสอบสถานะทั้งสอง ESP32
-      const [cameraResponse, gatewayResponse] = await Promise.all([
-        fetch("/api/esp32/heartbeat?device_id=ESP32_Camera_01"),
-        fetch("/api/esp32/heartbeat?device_id=ESP32_Gateway_02")
-      ])
+      // ตรวจสอบสถานะ ESP32 เดียว
+      const response = await fetch("/api/esp32/heartbeat?device_id=ESP32_Main")
       
-      const cameraStatus = cameraResponse.ok ? await cameraResponse.json() : { online: false, lastSeen: null }
-      const gatewayStatus = gatewayResponse.ok ? await gatewayResponse.json() : { online: false, lastSeen: null }
+      const status = response.ok ? await response.json() : { online: false, lastSeen: null }
       
-      setEsp32Status({
-        camera: cameraStatus,
-        gateway: gatewayStatus
-      })
+      setEsp32Status(status)
     } catch (error) {
       console.error("Error fetching ESP32 status:", error)
       setEsp32Status({
-        camera: { online: false, lastSeen: null },
-        gateway: { online: false, lastSeen: null }
+        online: false,
+        lastSeen: null
       })
     } finally {
       setIsLoadingEsp32(false)
@@ -307,31 +291,27 @@ export default function Dashboard() {
               {isLoadingEsp32 ? (
                 <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
               ) : (
-                <div className="flex gap-1">
-                  <div className={`w-2 h-2 rounded-full ${esp32Status.camera.online ? 'bg-green-500 dark:bg-green-400 animate-pulse' : 'bg-red-500 dark:bg-red-400'}`}></div>
-                  <div className={`w-2 h-2 rounded-full ${esp32Status.gateway.online ? 'bg-green-500 dark:bg-green-400 animate-pulse' : 'bg-red-500 dark:bg-red-400'}`}></div>
-                </div>
+                <div className={`w-2 h-2 rounded-full ${esp32Status.online ? 'bg-green-500 dark:bg-green-400 animate-pulse' : 'bg-red-500 dark:bg-red-400'}`}></div>
               )}
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">📷 Camera:</span>
-                  <span className={`text-sm font-semibold ${esp32Status.camera.online ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {isLoadingEsp32 ? <Loader2 className="w-4 h-4 animate-spin" /> : (esp32Status.camera.online ? 'Online' : 'Offline')}
+              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                {isLoadingEsp32 ? (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                ) : (
+                  <span className={`${esp32Status.online ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {esp32Status.online ? 'Online' : 'Offline'}
                   </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">🌐 Gateway:</span>
-                  <span className={`text-sm font-semibold ${esp32Status.gateway.online ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {isLoadingEsp32 ? <Loader2 className="w-4 h-4 animate-spin" /> : (esp32Status.gateway.online ? 'Online' : 'Offline')}
-                  </span>
-                </div>
+                )}
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                {(esp32Status.camera.online && esp32Status.gateway.online) ? 'ระบบทำงานปกติ' : 
-                 (esp32Status.camera.online || esp32Status.gateway.online) ? 'ระบบทำงานบางส่วน' : 'ระบบไม่ทำงาน'}
+                {esp32Status.online ? 'ระบบทำงานปกติ' : 'ระบบไม่ทำงาน'}
               </p>
+              {esp32Status.location && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  📍 {esp32Status.location}
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
