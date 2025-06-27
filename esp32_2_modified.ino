@@ -10,6 +10,11 @@ const char* password = "kan123456789";  // รหัสผ่าน WiFi เด�
 // Web Application Configuration
 const char* webAppURL = "https://alertemail.vercel.app/api/detection"; // URL ของเว็บแอปพลิเคชันจริง
 
+// Heartbeat Configuration
+const char* heartbeatURL = "https://alertemail.vercel.app/api/esp32/heartbeat"; // URL สำหรับ heartbeat
+unsigned long last_heartbeat_time = 0;
+const unsigned long heartbeat_interval = 30000; // ส่ง heartbeat ทุก 30 วินาที
+
 // Web server on port 80
 WebServer server(80);
 
@@ -32,6 +37,42 @@ void forwardToWebApp(DynamicJsonDocument& detectionData) {
         Serial.printf("Response: %s\n", response.c_str());
     } else {
         Serial.printf("❌ Error forwarding data: %s\n", http.errorToString(httpResponseCode).c_str());
+    }
+
+    http.end();
+}
+
+void sendGatewayHeartbeat() {
+    HTTPClient http;
+    http.begin(heartbeatURL);
+    http.addHeader("Content-Type", "application/json");
+
+    // สร้าง JSON payload สำหรับ heartbeat
+    DynamicJsonDocument doc(512);
+    doc["device_id"] = "ESP32_Gateway_02";
+    doc["timestamp"] = millis();
+    doc["location"] = "Network Gateway";
+    doc["version"] = "1.0.0";
+    doc["wifi_strength"] = WiFi.RSSI();
+    doc["uptime"] = millis() / 1000;  // วินาที
+    doc["free_heap"] = ESP.getFreeHeap();
+    doc["device_type"] = "gateway";
+    doc["status"] = "active";
+
+    String jsonString;
+    serializeJson(doc, jsonString);
+
+    Serial.println("💓 Sending gateway heartbeat to web app:");
+    Serial.println(jsonString);
+
+    int httpResponseCode = http.POST(jsonString);
+
+    if (httpResponseCode > 0) {
+        String response = http.getString();
+        Serial.printf("✅ Gateway heartbeat sent successfully. Response code: %d\n", httpResponseCode);
+        Serial.printf("Response: %s\n", response.c_str());
+    } else {
+        Serial.printf("❌ Error sending gateway heartbeat: %s\n", http.errorToString(httpResponseCode).c_str());
     }
 
     http.end();
@@ -149,6 +190,10 @@ void setup() {
     Serial.println(WiFi.localIP());
     Serial.println("⚠️  Update ESP32 #1 with this IP address if using gateway mode!");
     Serial.println("🌐 Web App URL: " + String(webAppURL));
+    Serial.println("💓 Heartbeat URL: " + String(heartbeatURL));
+    
+    // ส่ง heartbeat ครั้งแรก
+    sendGatewayHeartbeat();
 
     // Setup web server routes
     server.on("/", handleRoot);
@@ -162,5 +207,12 @@ void setup() {
 
 void loop() {
     server.handleClient();
+    
+    // ส่ง heartbeat ทุก 30 วินาที
+    if (millis() - last_heartbeat_time >= heartbeat_interval) {
+        last_heartbeat_time = millis();
+        sendGatewayHeartbeat();
+    }
+    
     delay(10);
 } 

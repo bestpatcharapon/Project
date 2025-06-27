@@ -42,6 +42,26 @@ export default function Dashboard() {
   const [totalPages, setTotalPages] = useState<number>(0)
   const [isShowingTodayData, setIsShowingTodayData] = useState<boolean>(false)
   const [dataMessage, setDataMessage] = useState<string>('')
+  const [esp32Status, setEsp32Status] = useState<{
+    camera: {
+      online: boolean
+      lastSeen: string | null
+      location?: string
+      device_type?: string
+      uptime?: number
+    }
+    gateway: {
+      online: boolean
+      lastSeen: string | null
+      location?: string
+      device_type?: string
+      uptime?: number
+    }
+  }>({
+    camera: { online: false, lastSeen: null },
+    gateway: { online: false, lastSeen: null }
+  })
+  const [isLoadingEsp32, setIsLoadingEsp32] = useState(true)
   
   const ITEMS_PER_PAGE = 6
 
@@ -49,6 +69,7 @@ export default function Dashboard() {
     fetchEmailCount()
     fetchVisitorCount()
     fetchDetections()
+    fetchEsp32Status()
     recordVisit()
 
     // รีเฟรชข้อมูลการตรวจจับทุก 30 วินาที
@@ -56,7 +77,15 @@ export default function Dashboard() {
       fetchDetections(currentPage)
     }, 30000)
 
-    return () => clearInterval(fetchInterval)
+    // รีเฟรชสถานะ ESP32 ทุก 15 วินาที
+    const esp32Interval = setInterval(() => {
+      fetchEsp32Status()
+    }, 15000)
+
+    return () => {
+      clearInterval(fetchInterval)
+      clearInterval(esp32Interval)
+    }
   }, [])
 
   // Auto-pagination effect - เปลี่ยนหน้าเฉพาะถ้ามีข้อมูลวันนี้มากกว่า 1 หน้า
@@ -129,6 +158,33 @@ export default function Dashboard() {
       console.error("Error fetching detections:", error)
     } finally {
       setIsLoadingDetections(false)
+    }
+  }
+
+  const fetchEsp32Status = async () => {
+    setIsLoadingEsp32(true)
+    try {
+      // ตรวจสอบสถานะทั้งสอง ESP32
+      const [cameraResponse, gatewayResponse] = await Promise.all([
+        fetch("/api/esp32/heartbeat?device_id=ESP32_Camera_01"),
+        fetch("/api/esp32/heartbeat?device_id=ESP32_Gateway_02")
+      ])
+      
+      const cameraStatus = cameraResponse.ok ? await cameraResponse.json() : { online: false, lastSeen: null }
+      const gatewayStatus = gatewayResponse.ok ? await gatewayResponse.json() : { online: false, lastSeen: null }
+      
+      setEsp32Status({
+        camera: cameraStatus,
+        gateway: gatewayStatus
+      })
+    } catch (error) {
+      console.error("Error fetching ESP32 status:", error)
+      setEsp32Status({
+        camera: { online: false, lastSeen: null },
+        gateway: { online: false, lastSeen: null }
+      })
+    } finally {
+      setIsLoadingEsp32(false)
     }
   }
 
@@ -247,15 +303,34 @@ export default function Dashboard() {
 
           <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-300">สถานะระบบ</CardTitle>
-              <div className={`w-2 h-2 rounded-full animate-pulse ${isShowingTodayData ? 'bg-green-500 dark:bg-green-400' : 'bg-yellow-500 dark:bg-yellow-400'}`}></div>
+              <CardTitle className="text-sm font-medium text-gray-700 dark:text-gray-300">สถานะ ESP32</CardTitle>
+              {isLoadingEsp32 ? (
+                <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+              ) : (
+                <div className="flex gap-1">
+                  <div className={`w-2 h-2 rounded-full ${esp32Status.camera.online ? 'bg-green-500 dark:bg-green-400 animate-pulse' : 'bg-red-500 dark:bg-red-400'}`}></div>
+                  <div className={`w-2 h-2 rounded-full ${esp32Status.gateway.online ? 'bg-green-500 dark:bg-green-400 animate-pulse' : 'bg-red-500 dark:bg-red-400'}`}></div>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${isShowingTodayData ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
-                {isShowingTodayData ? 'Live' : 'Archive'}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">📷 Camera:</span>
+                  <span className={`text-sm font-semibold ${esp32Status.camera.online ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {isLoadingEsp32 ? <Loader2 className="w-4 h-4 animate-spin" /> : (esp32Status.camera.online ? 'Online' : 'Offline')}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">🌐 Gateway:</span>
+                  <span className={`text-sm font-semibold ${esp32Status.gateway.online ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {isLoadingEsp32 ? <Loader2 className="w-4 h-4 animate-spin" /> : (esp32Status.gateway.online ? 'Online' : 'Offline')}
+                  </span>
+                </div>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {isShowingTodayData ? 'แสดงข้อมูลวันนี้' : 'แสดงข้อมูลเก่า'}
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                {(esp32Status.camera.online && esp32Status.gateway.online) ? 'ระบบทำงานปกติ' : 
+                 (esp32Status.camera.online || esp32Status.gateway.online) ? 'ระบบทำงานบางส่วน' : 'ระบบไม่ทำงาน'}
               </p>
             </CardContent>
           </Card>

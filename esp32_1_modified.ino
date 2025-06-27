@@ -75,6 +75,11 @@ String gatewayURL = "http://" + String(esp32GatewayIP) + "/detection";
 unsigned long last_capture_time = 0;
 const unsigned long capture_interval = 30000; // 30 วินาที
 
+// Heartbeat Configuration
+const char* heartbeatURL = "https://alertemail.vercel.app/api/esp32/heartbeat"; // URL สำหรับ heartbeat
+unsigned long last_heartbeat_time = 0;
+const unsigned long heartbeat_interval = 30000; // ส่ง heartbeat ทุก 30 วินาที
+
 void sendDetectionToGateway(ei_impulse_result_t result) {
     HTTPClient http;
     http.begin(gatewayURL.c_str());
@@ -135,6 +140,42 @@ void sendDetectionToGateway(ei_impulse_result_t result) {
     http.end();
 }
 
+void sendHeartbeat() {
+    HTTPClient http;
+    http.begin(heartbeatURL);
+    http.addHeader("Content-Type", "application/json");
+
+    // สร้าง JSON payload สำหรับ heartbeat
+    DynamicJsonDocument doc(512);
+    doc["device_id"] = "ESP32_Camera_01";
+    doc["timestamp"] = millis();
+    doc["location"] = "Front Door";
+    doc["version"] = "1.0.0";
+    doc["wifi_strength"] = WiFi.RSSI();
+    doc["uptime"] = millis() / 1000;  // วินาที
+    doc["free_heap"] = ESP.getFreeHeap();
+    doc["device_type"] = "camera";
+    doc["status"] = "active";
+
+    String jsonString;
+    serializeJson(doc, jsonString);
+
+    Serial.println("💓 Sending heartbeat to web app:");
+    Serial.println(jsonString);
+
+    int httpResponseCode = http.POST(jsonString);
+
+    if (httpResponseCode > 0) {
+        String response = http.getString();
+        Serial.printf("✅ Heartbeat sent successfully. Response code: %d\n", httpResponseCode);
+        Serial.printf("Response: %s\n", response.c_str());
+    } else {
+        Serial.printf("❌ Error sending heartbeat: %s\n", http.errorToString(httpResponseCode).c_str());
+    }
+
+    http.end();
+}
+
 bool ei_camera_init(void);
 void ei_camera_deinit(void);
 bool ei_camera_capture(uint32_t img_width, uint32_t img_height, uint8_t *out_buf);
@@ -161,11 +202,21 @@ void setup() {
 
     ei_printf("\n🔍 Starting human detection every 30 seconds...\n");
     ei_printf("📡 Sending data to ESP32 Gateway: %s\n", gatewayURL.c_str());
+    ei_printf("💓 Sending heartbeat to: %s\n", heartbeatURL);
     ei_printf("⚠️  Make sure ESP32 #2 Gateway is running first!\n");
+    
+    // ส่ง heartbeat ครั้งแรก
+    sendHeartbeat();
     ei_sleep(2000);
 }
 
 void loop() {
+    // ส่ง heartbeat ทุก 30 วินาที
+    if (millis() - last_heartbeat_time >= heartbeat_interval) {
+        last_heartbeat_time = millis();
+        sendHeartbeat();
+    }
+    
     if (millis() - last_capture_time >= capture_interval) {
         last_capture_time = millis();
 
