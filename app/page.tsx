@@ -53,7 +53,6 @@ export default function Dashboard() {
     lastSeen: null
   })
   const [isLoadingEsp32, setIsLoadingEsp32] = useState(true)
-  const [lastOnlineTime, setLastOnlineTime] = useState<Date | null>(null)
   
   const ITEMS_PER_PAGE = 6
 
@@ -69,10 +68,10 @@ export default function Dashboard() {
       fetchDetections(currentPage)
     }, 30000)
 
-    // รีเฟรชสถานะ ESP32 ทุก 12 วินาที (ช้าลงเล็กน้อย)
+    // รีเฟรชสถานะ ESP32 ทุก 10 วินาที
     const esp32Interval = setInterval(() => {
       fetchEsp32Status()
-    }, 12000)
+    }, 10000)
 
     return () => {
       clearInterval(fetchInterval)
@@ -159,25 +158,17 @@ export default function Dashboard() {
       // ตรวจสอบสถานะ ESP32 เดียว
       const response = await fetch("/api/esp32/heartbeat?device_id=ESP32_Main")
       
-      const status = response.ok ? await response.json() : { online: false, lastSeen: null }
-      
-      // ถ้า ESP32 online ให้บันทึกเวลา
-      if (status.online) {
-        setLastOnlineTime(new Date())
+      if (response.ok) {
+        const status = await response.json()
+        console.log(`ESP32 Status Check: server=${status.online}, lastSeen=${status.lastSeen}`)
+        setEsp32Status(status)
+      } else {
+        console.log("ESP32 Status Check: API error, setting offline")
+        setEsp32Status({
+          online: false,
+          lastSeen: null
+        })
       }
-      
-      // ใช้ grace period - ถ้าเพิ่ง online ไปไม่เกิน 20 วินาที ให้แสดง online
-      const now = new Date()
-      const timeSinceLastOnline = lastOnlineTime ? (now.getTime() - lastOnlineTime.getTime()) / 1000 : 999
-      
-      const finalStatus = {
-        ...status,
-        online: status.online || (timeSinceLastOnline < 30) // Grace period 30 วินาที (เพิ่มขึ้น)
-      }
-      
-      console.log(`ESP32 Status Check: server=${status.online}, gracePeriod=${timeSinceLastOnline < 30}, final=${finalStatus.online}`)
-      
-      setEsp32Status(finalStatus)
     } catch (error) {
       console.error("Error fetching ESP32 status:", error)
       setEsp32Status({

@@ -16,7 +16,6 @@ interface ESP32Heartbeat {
 const heartbeatData = new Map<string, {
   lastSeen: Date
   data: ESP32Heartbeat
-  consecutiveOnline: number // นับจำนวนครั้งที่ online ติดต่อกัน
 }>()
 
 // POST endpoint สำหรับรับ heartbeat จาก ESP32
@@ -32,11 +31,9 @@ export async function POST(request: NextRequest) {
     }
 
     // บันทึก heartbeat
-    const existingData = heartbeatData.get(body.device_id)
     heartbeatData.set(body.device_id, {
       lastSeen: new Date(),
-      data: body,
-      consecutiveOnline: (existingData?.consecutiveOnline || 0) + 1
+      data: body
     })
 
     console.log(`💓 Heartbeat received from ${body.device_id} (${body.device_type || 'unknown'}) - ${body.location || 'No location'}`)
@@ -65,6 +62,8 @@ export async function GET(request: NextRequest) {
     const deviceData = heartbeatData.get(deviceId)
     
     if (!deviceData) {
+      console.log(`❌ No heartbeat data found for device: ${deviceId}`)
+      console.log(`📋 Available devices: ${Array.from(heartbeatData.keys()).join(', ')}`)
       return NextResponse.json({
         online: false,
         lastSeen: null,
@@ -72,19 +71,15 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // ตรวจสอบว่า heartbeat ล่าสุดเมื่อไหร่ (ถือว่า offline ถ้าเกิน 45 วินาที)
+    // ตรวจสอบว่า heartbeat ล่าสุดเมื่อไหร่
     const now = new Date()
     const timeDiff = now.getTime() - deviceData.lastSeen.getTime()
     
-    // Hysteresis logic - ใช้ threshold ต่างกันสำหรับ online/offline
-    const onlineThreshold = 45000 // 45 วินาที
-    const offlineThreshold = 60000 // 60 วินาที
+    // ใช้ timeout แบบง่าย - ถือว่า offline ถ้าเกิน 30 วินาที
+    const TIMEOUT_MS = 30000 // 30 วินาที
+    const isOnline = timeDiff < TIMEOUT_MS
     
-    // ถ้าเคย online มาแล้วหลายครั้ง ให้ใช้ threshold ที่นานกว่า
-    const threshold = deviceData.consecutiveOnline > 3 ? offlineThreshold : onlineThreshold
-    const isOnline = timeDiff < threshold
-    
-    console.log(`🔍 Status check for ${deviceId}: timeDiff=${Math.floor(timeDiff/1000)}s, consecutive=${deviceData.consecutiveOnline}, threshold=${threshold/1000}s, isOnline=${isOnline}`)
+    console.log(`🔍 Status check for ${deviceId}: timeDiff=${Math.floor(timeDiff/1000)}s, isOnline=${isOnline}`)
 
     return NextResponse.json({
       online: isOnline,
