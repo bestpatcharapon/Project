@@ -69,10 +69,10 @@ export default function Dashboard() {
       fetchDetections(currentPage)
     }, 30000)
 
-    // รีเฟรชสถานะ ESP32 ทุก 8 วินาที (เร็วขึ้น)
+    // รีเฟรชสถานะ ESP32 ทุก 12 วินาที (ช้าลงเล็กน้อย)
     const esp32Interval = setInterval(() => {
       fetchEsp32Status()
-    }, 8000)
+    }, 12000)
 
     return () => {
       clearInterval(fetchInterval)
@@ -172,8 +172,10 @@ export default function Dashboard() {
       
       const finalStatus = {
         ...status,
-        online: status.online || (timeSinceLastOnline < 20) // Grace period 20 วินาที
+        online: status.online || (timeSinceLastOnline < 30) // Grace period 30 วินาที (เพิ่มขึ้น)
       }
+      
+      console.log(`ESP32 Status Check: server=${status.online}, gracePeriod=${timeSinceLastOnline < 30}, final=${finalStatus.online}`)
       
       setEsp32Status(finalStatus)
     } catch (error) {
