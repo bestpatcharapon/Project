@@ -135,6 +135,24 @@ void sendHeartbeat() {
     Serial.println("\n💓 Sending ESP32 heartbeat...");
     Serial.printf("🔋 Free Memory: %d bytes\n", ESP.getFreeHeap());
     
+    // ตรวจสอบ WiFi connection ก่อนส่ง
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("❌ WiFi disconnected! Reconnecting...");
+        WiFi.begin(ssid, password);
+        int attempts = 0;
+        while (WiFi.status() != WL_CONNECTED && attempts < 10) {
+            delay(500);
+            Serial.print(".");
+            attempts++;
+        }
+        if (WiFi.status() == WL_CONNECTED) {
+            Serial.println("\n✅ WiFi reconnected!");
+        } else {
+            Serial.println("\n❌ WiFi reconnection failed!");
+            return;
+        }
+    }
+    
     DynamicJsonDocument doc(512);
     doc["device_id"] = "ESP32_Main";  // ใช้ชื่อเดียว
     doc["timestamp"] = millis();
@@ -155,7 +173,7 @@ void sendHeartbeat() {
     HTTPClient http;
     http.begin(heartbeatURL);
     http.addHeader("Content-Type", "application/json");
-    http.setTimeout(15000);
+    http.setTimeout(10000); // ลด timeout
 
     int response = http.POST(jsonString);
     
@@ -169,6 +187,26 @@ void sendHeartbeat() {
     } else {
         Serial.printf("❌ ESP32 Heartbeat Error: %s\n", http.errorToString(response).c_str());
         printConnectionError(response);
+        
+        // ลองส่งใหม่อีกครั้งหากล้มเหลว
+        Serial.println("🔄 Retrying heartbeat in 2 seconds...");
+        delay(2000);
+        
+        HTTPClient retryHttp;
+        retryHttp.begin(heartbeatURL);
+        retryHttp.addHeader("Content-Type", "application/json");
+        retryHttp.setTimeout(8000);
+        
+        int retryResponse = retryHttp.POST(jsonString);
+        if (retryResponse > 0) {
+            Serial.printf("✅ Retry Heartbeat Code: %d\n", retryResponse);
+            if (retryResponse == 200) {
+                Serial.println("💚 ESP32 Retry Success - should show Online");
+            }
+        } else {
+            Serial.printf("❌ Retry Failed: %s\n", retryHttp.errorToString(retryResponse).c_str());
+        }
+        retryHttp.end();
     }
     http.end();
     Serial.println();
@@ -200,8 +238,8 @@ void printStatus() {
 void loop() {
     unsigned long currentTime = millis();
     
-    // ส่ง heartbeat ทุก 10 วินาที (เร็วขึ้น)
-    if (currentTime - lastHeartbeat >= 10000) {
+    // ส่ง heartbeat ทุก 8 วินาที (เร็วมากขึ้น)
+    if (currentTime - lastHeartbeat >= 8000) {
         sendHeartbeat();
         lastHeartbeat = currentTime;
     }

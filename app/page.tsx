@@ -53,6 +53,7 @@ export default function Dashboard() {
     lastSeen: null
   })
   const [isLoadingEsp32, setIsLoadingEsp32] = useState(true)
+  const [lastOnlineTime, setLastOnlineTime] = useState<Date | null>(null)
   
   const ITEMS_PER_PAGE = 6
 
@@ -160,7 +161,21 @@ export default function Dashboard() {
       
       const status = response.ok ? await response.json() : { online: false, lastSeen: null }
       
-      setEsp32Status(status)
+      // ถ้า ESP32 online ให้บันทึกเวลา
+      if (status.online) {
+        setLastOnlineTime(new Date())
+      }
+      
+      // ใช้ grace period - ถ้าเพิ่ง online ไปไม่เกิน 20 วินาที ให้แสดง online
+      const now = new Date()
+      const timeSinceLastOnline = lastOnlineTime ? (now.getTime() - lastOnlineTime.getTime()) / 1000 : 999
+      
+      const finalStatus = {
+        ...status,
+        online: status.online || (timeSinceLastOnline < 20) // Grace period 20 วินาที
+      }
+      
+      setEsp32Status(finalStatus)
     } catch (error) {
       console.error("Error fetching ESP32 status:", error)
       setEsp32Status({

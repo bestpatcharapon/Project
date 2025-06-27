@@ -68,10 +68,10 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // ตรวจสอบว่า heartbeat ล่าสุดเมื่อไหร่ (ถือว่า offline ถ้าเกิน 30 วินาที)
+    // ตรวจสอบว่า heartbeat ล่าสุดเมื่อไหร่ (ถือว่า offline ถ้าเกิน 45 วินาที)
     const now = new Date()
     const timeDiff = now.getTime() - deviceData.lastSeen.getTime()
-    const isOnline = timeDiff < 30000 // 30 วินาที
+    const isOnline = timeDiff < 45000 // 45 วินาที (เพิ่ม buffer)
 
     return NextResponse.json({
       online: isOnline,
