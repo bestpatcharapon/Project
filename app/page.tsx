@@ -68,10 +68,10 @@ export default function Dashboard() {
       fetchDetections(currentPage)
     }, 30000)
 
-    // รีเฟรชสถานะ ESP32 ทุก 15 วินาที
+    // รีเฟรชสถานะ ESP32 ทุก 8 วินาที (เร็วขึ้น)
     const esp32Interval = setInterval(() => {
       fetchEsp32Status()
-    }, 15000)
+    }, 8000)
 
     return () => {
       clearInterval(fetchInterval)

@@ -3,8 +3,8 @@
 #include <ArduinoJson.h>
 
 // Network Configuration
-const char* ssid = "Kanchada_2.4G";        // แก้ไขเป็น WiFi ของคุณ
-const char* password = "kan123456789";      // แก้ไขเป็นรหัสผ่าน WiFi ของคุณ
+const char* ssid = "iPhone";        // แก้ไขเป็น WiFi ของคุณ
+const char* password = "123456789";      // แก้ไขเป็นรหัสผ่าน WiFi ของคุณ
 
 // Web Application URLs - Production Server
 const char* detectionURL = "https://alertemail.vercel.app/api/detection";        
@@ -200,8 +200,8 @@ void printStatus() {
 void loop() {
     unsigned long currentTime = millis();
     
-    // ส่ง heartbeat ทุก 15 วินาที
-    if (currentTime - lastHeartbeat >= 15000) {
+    // ส่ง heartbeat ทุก 10 วินาที (เร็วขึ้น)
+    if (currentTime - lastHeartbeat >= 10000) {
         sendHeartbeat();
         lastHeartbeat = currentTime;
     }
