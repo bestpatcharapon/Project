@@ -3,13 +3,21 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from "recharts"
+import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer } from "recharts"
 import { TrendingUp, Activity, Users, Clock } from "lucide-react"
 
 interface ChartData {
   detectionTrends: Array<{ date: string; detections: number }>
   performanceData: Array<{ index: number; dsp_time: number; classification_time: number; anomaly_time: number }>
-  visitorTrends: Array<{ date: string; visitors: number }>
+  detectionStats: {
+    totalDetections: number;
+    timeDistribution: Array<{ 
+      name: string; 
+      value: number; 
+      color: string;
+      percentage: number;
+    }>
+  }
   hourlyData: Array<{ 
     hour: string; 
     hourDisplay?: string; 
@@ -87,15 +95,15 @@ export function DashboardCharts() {
         { date: "25 มิ.ย.", detections: 15 },
         { date: "26 มิ.ย.", detections: 9 }
       ],
-      visitorTrends: [
-        { date: "20 มิ.ย.", visitors: 25 },
-        { date: "21 มิ.ย.", visitors: 32 },
-        { date: "22 มิ.ย.", visitors: 28 },
-        { date: "23 มิ.ย.", visitors: 45 },
-        { date: "24 มิ.ย.", visitors: 38 },
-        { date: "25 มิ.ย.", visitors: 52 },
-        { date: "26 มิ.ย.", visitors: 41 }
-      ],
+      detectionStats: {
+        totalDetections: 131,
+        timeDistribution: [
+          { name: "เช้า (06:00-12:00)", value: 45, color: "#A7C7E7", percentage: 34.4 },
+          { name: "บ่าย (12:00-18:00)", value: 52, color: "#B8E6B8", percentage: 39.7 },
+          { name: "เย็น (18:00-22:00)", value: 28, color: "#FFD1A9", percentage: 21.4 },
+          { name: "กลางคืน (22:00-06:00)", value: 6, color: "#D1C4E9", percentage: 4.5 }
+        ]
+      },
       performanceData: [
         { index: 1, dsp_time: 95, classification_time: 180, anomaly_time: 65 },
         { index: 2, dsp_time: 110, classification_time: 195, anomaly_time: 70 },
@@ -213,66 +221,87 @@ export function DashboardCharts() {
         </CardContent>
       </Card>
 
-      {/* Visitor Trends Chart */}
+      {/* Detection Statistics Pie Chart */}
       <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div>
             <CardTitle className="text-base font-medium text-gray-900 dark:text-gray-100">
-              สถิติผู้เข้าชม
+              สถิติการตรวจจับ
             </CardTitle>
             <CardDescription className="text-sm text-gray-600 dark:text-gray-400">
-              30 วันที่ผ่านมา
+              {chartData.detectionStats.totalDetections} รายการ - แบ่งตามช่วงเวลา
             </CardDescription>
           </div>
-          <Users className="h-4 w-4 text-purple-500 dark:text-purple-400" />
+          <Activity className="h-4 w-4 text-green-500 dark:text-green-400" />
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="h-48">
-            <AreaChart data={chartData.visitorTrends} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
-              <XAxis 
-                dataKey="date" 
-                tick={{ fontSize: 10, fill: 'currentColor' }}
-                axisLine={false}
-                tickLine={false}
-                interval={Math.floor(chartData.visitorTrends.length / 6)} // แสดงประมาณ 6-7 วัน
-                angle={-45}
-                textAnchor="end"
-                height={50}
-              />
-              <YAxis 
-                tick={{ fontSize: 10, fill: 'currentColor' }}
-                axisLine={false}
-                tickLine={false}
-                domain={[0, 'dataMax + 5']}
-              />
-              <ChartTooltip 
-                content={({ active, payload, label }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
-                        <p className="font-medium text-gray-900 dark:text-gray-100">
-                          วันที่: {label}
-                        </p>
-                        <p className="text-sm font-medium text-purple-600 dark:text-purple-400">
-                          ผู้เข้าชม: {payload[0].value} คน
-                        </p>
+          <div className="flex items-center justify-between h-48">
+            {/* Pie Chart */}
+            <div className="flex-1">
+              <ChartContainer config={chartConfig} className="h-48">
+                <PieChart>
+                  <Pie
+                    data={chartData.detectionStats.timeDistribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={30}
+                    outerRadius={70}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {chartData.detectionStats.timeDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <ChartTooltip 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload
+                        return (
+                          <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                            <p className="font-medium text-gray-900 dark:text-gray-100">
+                              {data.name}
+                            </p>
+                            <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                              {data.value} ครั้ง ({data.percentage}%)
+                            </p>
+                          </div>
+                        )
+                      }
+                      return null
+                    }}
+                  />
+                </PieChart>
+              </ChartContainer>
+            </div>
+            
+            {/* Legend */}
+            <div className="flex-1 pl-4">
+              <div className="space-y-2">
+                {chartData.detectionStats.timeDistribution.map((entry, index) => (
+                  <div key={index} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center space-x-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: entry.color }}
+                      ></div>
+                      <span className="text-gray-700 dark:text-gray-300 text-[10px]">
+                        {entry.name.split(' ')[0]}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium text-gray-900 dark:text-gray-100">
+                        {entry.value}
                       </div>
-                    )
-                  }
-                  return null
-                }}
-                cursor={{ stroke: 'hsl(var(--chart-2))', strokeWidth: 1 }}
-              />
-              <Area
-                type="monotone"
-                dataKey="visitors"
-                stroke="hsl(var(--chart-2))"
-                fill="hsl(var(--chart-2))"
-                fillOpacity={0.15}
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ChartContainer>
+                      <div className="text-gray-500 dark:text-gray-400">
+                        {entry.percentage}%
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

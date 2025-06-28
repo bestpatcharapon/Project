@@ -57,21 +57,67 @@ export async function GET() {
       })
     }
 
-    // ดึงข้อมูล visitor trends จริงจาก การตรวจจับสำหรับ 30 วัน
-    const visitorTrends = []
-    for (let i = 29; i >= 0; i--) {
-      // ใช้ข้อมูลจากการตรวจจับเป็นฐานในการคำนวณ visitor (เนื่องจากไม่มีตาราง visitor แยก)
-      const detectionCount = detectionTrends[29 - i]?.detections || 0
+    // ดึงข้อมูลการตรวจจับจริงจากฐานข้อมูลแบ่งตามช่วงเวลา
+    const totalDetectionsFromDB = await prisma.general_information.count()
+    
+    // ดึงข้อมูลการตรวจจับแบ่งตามช่วงเวลาจริงจากฐานข้อมูล
+    let morningCount = 0, afternoonCount = 0, eveningCount = 0, nightCount = 0
+    
+    // ดึงข้อมูลทั้งหมดและแบ่งตามเวลา
+    const allDetections = await prisma.general_information.findMany({
+      select: {
+        detection_time: true
+      }
+    })
+    
+    // นับจำนวนการตรวจจับในแต่ละช่วงเวลา (ใช้เวลาไทย)
+    allDetections.forEach(detection => {
+      // แปลงเป็นเวลาไทย (UTC+7)
+      const thailandTime = new Date(detection.detection_time.getTime() + (7 * 60 * 60 * 1000))
+      const hour = thailandTime.getHours()
       
-      // คำนวณ visitors จากการตรวจจับ: 1 detection = 2-4 unique visitors
-      // เพิ่ม base visitors สำหรับผู้เข้าชมทั่วไป
-      const baseVisitors = Math.max(detectionCount * 3, 8) // อย่างน้อย 8 visitors ต่อวัน
-      const dailyVariation = Math.floor(Math.random() * 12) // ความผันแปร 0-12
-      
-      visitorTrends.push({
-        date: dates[29 - i],
-        visitors: baseVisitors + dailyVariation
-      })
+      if (hour >= 6 && hour < 12) {
+        morningCount++
+      } else if (hour >= 12 && hour < 18) {
+        afternoonCount++
+      } else if (hour >= 18 && hour < 22) {
+        eveningCount++
+      } else {
+        nightCount++
+      }
+    })
+    
+    // ใช้จำนวนจริงจากฐานข้อมูล
+    const actualTotalDetections = totalDetectionsFromDB
+
+    const detectionStats = {
+      totalDetections: actualTotalDetections,
+      timeDistribution: [
+        { 
+          name: "เช้า (06:00-12:00)", 
+          value: morningCount, 
+          color: "#A7C7E7", // Pastel Blue - สีฟ้าพาสเทล
+          percentage: actualTotalDetections > 0 ? Math.round((morningCount / actualTotalDetections) * 100 * 10) / 10 : 0
+        },
+        { 
+          name: "บ่าย (12:00-18:00)", 
+          value: afternoonCount, 
+          color: "#B8E6B8", // Pastel Green - สีเขียวพาสเทล
+          percentage: actualTotalDetections > 0 ? Math.round((afternoonCount / actualTotalDetections) * 100 * 10) / 10 : 0
+        },
+        { 
+          name: "เย็น (18:00-22:00)", 
+          value: eveningCount, 
+          color: "#FFD1A9", // Pastel Orange - สีส้มพาสเทล
+          percentage: actualTotalDetections > 0 ? Math.round((eveningCount / actualTotalDetections) * 100 * 10) / 10 : 0
+        },
+        { 
+          name: "กลางคืน (22:00-06:00)", 
+          value: nightCount, 
+          color: "#D1C4E9", // Pastel Purple - สีม่วงพาสเทล
+          percentage: actualTotalDetections > 0 ? Math.round((nightCount / actualTotalDetections) * 100 * 10) / 10 : 0
+        }
+      ]
     }
 
     // ดึงข้อมูล performance จริงจาก database
@@ -143,7 +189,7 @@ export async function GET() {
 
     const chartData = {
       detectionTrends,
-      visitorTrends,
+      detectionStats,
       performanceData,
       hourlyData
     }
