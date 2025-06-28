@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { ThemeProvider } from "@/components/theme-provider"
 import { useTheme } from "next-themes"
 import { Sun, Moon, Camera } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Badge } from "@/components/ui/badge"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -21,28 +21,41 @@ export default function ClientLayout({
 }) {
   const [todayDetectionCount, setTodayDetectionCount] = useState<number>(0)
 
+  // ลบการเรียก API ซ้ำซ้อนและใช้ localStorage เพื่อ sync ข้อมูลระหว่าง components
   useEffect(() => {
-    fetchTodayDetections()
-    
-    // รีเฟรชข้อมูลทุก 30 วินาที
-    const interval = setInterval(() => {
-      fetchTodayDetections()
-    }, 30000)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  const fetchTodayDetections = async () => {
-    try {
-      const response = await fetch('/api/detections/latest?page=0&limit=1')
-      if (response.ok) {
-        const data = await response.json()
-        setTodayDetectionCount(data.todayCount || 0)
+    // อ่านข้อมูลจาก localStorage
+    const updateCountFromStorage = () => {
+      const storedCount = localStorage.getItem('todayDetectionCount')
+      if (storedCount) {
+        setTodayDetectionCount(parseInt(storedCount, 10))
       }
-    } catch (error) {
-      console.error('Error fetching today detections:', error)
     }
-  }
+
+    // อ่านข้อมูลเมื่อ component mount
+    updateCountFromStorage()
+
+    // ฟังการเปลี่ยนแปลงของ localStorage
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'todayDetectionCount' && event.newValue) {
+        setTodayDetectionCount(parseInt(event.newValue, 10))
+      }
+    }
+
+    // เพิ่ม event listener สำหรับ custom event
+    const handleCustomUpdate = (event: CustomEvent) => {
+      if (event.detail?.todayDetectionCount !== undefined) {
+        setTodayDetectionCount(event.detail.todayDetectionCount)
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('dashboardDataUpdate', handleCustomUpdate as EventListener)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('dashboardDataUpdate', handleCustomUpdate as EventListener)
+    }
+  }, [])
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>

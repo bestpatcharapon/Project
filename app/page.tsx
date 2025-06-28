@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -56,43 +56,8 @@ export default function Dashboard() {
   
   const ITEMS_PER_PAGE = 6
 
-  useEffect(() => {
-    // เรียกข้อมูลพร้อมกันในครั้งแรก
-    Promise.all([
-      fetchDashboardStats(),
-      fetchDetections(),
-      recordVisit()
-    ])
-
-    // รีเฟรชข้อมูลทุก 30 วินาที
-    const fetchInterval = setInterval(() => {
-      Promise.all([
-        fetchDashboardStats(),
-        fetchDetections(currentPage)
-      ])
-    }, 30000)
-
-    return () => {
-      clearInterval(fetchInterval)
-    }
-  }, [])
-
-  // Auto-pagination effect - เปลี่ยนหน้าเฉพาะถ้ามีข้อมูลวันนี้มากกว่า 1 หน้า
-  useEffect(() => {
-    if (totalPages <= 1 || !isShowingTodayData) return
-
-    const pageInterval = setInterval(() => {
-      setCurrentPage((prevPage) => {
-        const nextPage = prevPage >= totalPages - 1 ? 0 : prevPage + 1
-        fetchDetections(nextPage)
-        return nextPage
-      })
-    }, 60000) // เปลี่ยนหน้าทุก 1 นาที (สำหรับข้อมูลวันนี้)
-
-    return () => clearInterval(pageInterval)
-  }, [totalPages, isShowingTodayData])
-
-  const fetchDashboardStats = async () => {
+  // Memoized fetch functions to prevent unnecessary re-renders
+  const fetchDashboardStats = useCallback(async () => {
     setIsLoadingEmails(true)
     setIsLoadingVisitors(true)  
     setIsLoadingEsp32(true)
@@ -109,6 +74,12 @@ export default function Dashboard() {
           setTotalDetectionCount(data.totalDetectionCount)
           setLast24HoursCount(data.last24HoursCount)
           setEsp32Status(data.esp32Status)
+          
+          // Sync ข้อมูลกับ ClientLayout ผ่าน localStorage และ custom event
+          localStorage.setItem('todayDetectionCount', data.todayDetectionCount.toString())
+          window.dispatchEvent(new CustomEvent('dashboardDataUpdate', {
+            detail: { todayDetectionCount: data.todayDetectionCount }
+          }))
         }
       }
     } catch (error) {
@@ -118,48 +89,15 @@ export default function Dashboard() {
       setIsLoadingVisitors(false)
       setIsLoadingEsp32(false)
     }
-  }
+  }, [])
 
-  const fetchEmailCount = async () => {
-    setIsLoadingEmails(true)
-    try {
-      const response = await fetch("/api/emails")
-      if (response.ok) {
-        const emails: Email[] = await response.json()
-        setEmailCount(emails.length)
-      }
-    } catch (error) {
-      console.error("Error fetching emails:", error)
-    } finally {
-      setIsLoadingEmails(false)
-    }
-  }
-
-  const fetchVisitorCount = async () => {
-    setIsLoadingVisitors(true)
-    try {
-      const response = await fetch("/api/visitors")
-      if (response.ok) {
-        const data = await response.json()
-        setVisitorCount(data.uniqueVisitors)
-      }
-    } catch (error) {
-      console.error("Error fetching visitors:", error)
-    } finally {
-      setIsLoadingVisitors(false)
-    }
-  }
-
-  const fetchDetections = async (page: number = currentPage) => {
+  const fetchDetections = useCallback(async (page: number = currentPage) => {
     setIsLoadingDetections(true)
     try {
-      console.log("Fetching detections for page:", page)
       const response = await fetch(`/api/detections/latest?page=${page}&limit=${ITEMS_PER_PAGE}`)
-      console.log("Detection response status:", response.status)
       
       if (response.ok) {
         const data = await response.json()
-        console.log("Detection data:", data)
         setDetections(data.latestDetections)
         setTodayDetectionCount(data.todayCount)
         setLast24HoursCount(data.last24HoursCount)
@@ -168,47 +106,16 @@ export default function Dashboard() {
         setCurrentPage(data.currentPage)
         setIsShowingTodayData(data.isShowingTodayData)
         setDataMessage(data.message || '')
-      } else {
-        console.error("Failed to fetch detections:", response.status)
       }
     } catch (error) {
       console.error("Error fetching detections:", error)
     } finally {
       setIsLoadingDetections(false)
     }
-  }
+  }, [currentPage, ITEMS_PER_PAGE])
 
-  const fetchEsp32Status = async () => {
-    setIsLoadingEsp32(true)
+  const recordVisit = useCallback(async () => {
     try {
-      // ตรวจสอบสถานะ ESP32 เดียว
-      const response = await fetch("/api/esp32/heartbeat?device_id=ESP32_Main")
-      
-      if (response.ok) {
-        const status = await response.json()
-        console.log(`ESP32 Status Check: server=${status.online}, lastSeen=${status.lastSeen}`)
-        setEsp32Status(status)
-      } else {
-        console.log("ESP32 Status Check: API error, setting offline")
-        setEsp32Status({
-          online: false,
-          lastSeen: null
-        })
-      }
-    } catch (error) {
-      console.error("Error fetching ESP32 status:", error)
-      setEsp32Status({
-        online: false,
-        lastSeen: null
-      })
-    } finally {
-      setIsLoadingEsp32(false)
-    }
-  }
-
-  const recordVisit = async () => {
-    try {
-      // สร้าง visitor ID จาก timestamp และ random number
       const visitorId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       
       await fetch("/api/visitors", {
@@ -218,13 +125,50 @@ export default function Dashboard() {
         },
         body: JSON.stringify({ visitorId }),
       })
-      
-      // อัปเดตจำนวนผู้เข้าชมหลังจากบันทึก
-      setTimeout(fetchVisitorCount, 500)
     } catch (error) {
       console.error("Error recording visit:", error)
     }
-  }
+  }, [])
+
+  // Initial data load
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await Promise.all([
+        fetchDashboardStats(),
+        fetchDetections(),
+        recordVisit()
+      ])
+    }
+    
+    loadInitialData()
+  }, [fetchDashboardStats, fetchDetections, recordVisit])
+
+  // Single interval for all data refreshing
+  useEffect(() => {
+    const refreshInterval = setInterval(async () => {
+      await Promise.all([
+        fetchDashboardStats(),
+        fetchDetections(currentPage)
+      ])
+    }, 60000) // เปลี่ยนจาก 30 วินาที เป็น 60 วินาที เพื่อลดการ refresh
+
+    return () => clearInterval(refreshInterval)
+  }, [fetchDashboardStats, fetchDetections, currentPage])
+
+  // Auto-pagination - ทำงานเฉพาะเมื่อมีข้อมูลวันนี้และมีหลายหน้า
+  useEffect(() => {
+    if (totalPages <= 1 || !isShowingTodayData) return
+
+    const pageInterval = setInterval(() => {
+      setCurrentPage((prevPage) => {
+        const nextPage = prevPage >= totalPages - 1 ? 0 : prevPage + 1
+        fetchDetections(nextPage)
+        return nextPage
+      })
+    }, 120000) // เปลี่ยนจาก 60 วินาที เป็น 120 วินาที (2 นาที)
+
+    return () => clearInterval(pageInterval)
+  }, [totalPages, isShowingTodayData, fetchDetections])
 
   const formatDate = (dateString: Date) => {
     const date = new Date(dateString)

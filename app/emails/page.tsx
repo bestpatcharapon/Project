@@ -32,7 +32,7 @@ export default function EmailsPage() {
       }
       const data: Email[] = await response.json()
       setEmails(data)
-      console.log("Fetched emails:", data)
+      
     } catch (error) {
       toast({
         title: "เกิดข้อผิดพลาด",

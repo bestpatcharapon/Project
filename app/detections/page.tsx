@@ -62,13 +62,10 @@ export default function DetectionsPage() {
   const fetchDetections = async (page: number = currentPage) => {
     setIsLoadingDetections(true)
     try {
-      console.log("Fetching detections for page:", page)
       const response = await fetch(`/api/detections/latest?page=${page}&limit=${ITEMS_PER_PAGE}`)
-      console.log("Detection response status:", response.status)
       
       if (response.ok) {
         const data = await response.json()
-        console.log("Detection data:", data)
         setDetections(data.latestDetections)
         setTodayDetectionCount(data.todayCount)
         setTotalDetectionCount(data.totalCount)

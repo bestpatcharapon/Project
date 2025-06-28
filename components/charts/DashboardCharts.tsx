@@ -56,23 +56,19 @@ export function DashboardCharts() {
 
   useEffect(() => {
     fetchChartData()
-    // Refresh data every 30 seconds for real-time updates
-    const interval = setInterval(fetchChartData, 30 * 1000)
+    // Refresh data every 2 minutes to reduce server load and improve performance
+    const interval = setInterval(fetchChartData, 120 * 1000)
     return () => clearInterval(interval)
   }, [])
 
   const fetchChartData = async () => {
     try {
-      console.log("Fetching chart data...")
       const response = await fetch("/api/chart-data")
-      console.log("Response status:", response.status)
       if (response.ok) {
         const data = await response.json()
-        console.log("Chart data received:", data)
         setChartData(data)
       } else {
-        console.error("API responded with error:", response.status, response.statusText)
-        // Set fallback data
+        // Set fallback data on error
         setFallbackData()
       }
     } catch (error) {

@@ -10,15 +10,13 @@ export async function GET() {
     const todayStart = new Date(thailandNow.getFullYear(), thailandNow.getMonth(), thailandNow.getDate())
     const todayStartUTC = new Date(todayStart.getTime() - thailandOffset)
 
-    // ดึงข้อมูลทั้งหมดพร้อมกันด้วย Promise.all
-    const [
-      emailCount,
-      todayDetectionCount,
-      totalDetectionCount,
-      last24HoursCount,
-      esp32Status,
-      visitorCount
-    ] = await Promise.all([
+    // เพิ่ม timeout สำหรับ database operations
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Database query timeout')), 10000)
+    )
+
+    // ดึงข้อมูลทั้งหมดพร้อมกันด้วย Promise.all และ timeout
+    const dataPromise = Promise.all([
       // นับจำนวนอีเมล
       prisma.email.count(),
       
@@ -58,27 +56,36 @@ export async function GET() {
         }
       }),
       
-      // ใช้ raw query สำหรับนับ unique visitors (ถ้ามี table visitors)
-      prisma.$queryRaw`SELECT COUNT(*) as count FROM (SELECT DISTINCT device_id FROM general_information) as unique_devices`.catch(() => 0)
+      // นับ unique device_id (simplified)
+      prisma.general_information.groupBy({
+        by: ['device_id']
+      }).then(result => result.length).catch(() => 0)
     ])
+
+    const [
+      emailCount,
+      todayDetectionCount,
+      totalDetectionCount,
+      last24HoursCount,
+      esp32Status,
+      visitorCount
+    ] = await Promise.race([dataPromise, timeout]) as any[]
 
     // ตรวจสอบว่า ESP32 online หรือไม่ (ถ้าส่งข้อมูลใน 5 นาทีที่ผ่านมา)
     const isEsp32Online = esp32Status && 
       (Date.now() - new Date(esp32Status.detection_time).getTime()) < 5 * 60 * 1000
 
-    // ถ้าไม่มี table visitors ใช้ device_id แทน
-    const uniqueVisitors = Array.isArray(visitorCount) && visitorCount[0] ? 
-      Number(visitorCount[0].count) : 
-      totalDetectionCount
+    // นับ unique device_id
+    const uniqueVisitors = typeof visitorCount === 'number' ? visitorCount : 0
 
     return NextResponse.json({
       success: true,
       data: {
-        emailCount,
+        emailCount: emailCount || 0,
         visitorCount: uniqueVisitors,
-        todayDetectionCount,
-        totalDetectionCount,
-        last24HoursCount,
+        todayDetectionCount: todayDetectionCount || 0,
+        totalDetectionCount: totalDetectionCount || 0,
+        last24HoursCount: last24HoursCount || 0,
         esp32Status: {
           online: isEsp32Online,
           lastSeen: esp32Status?.detection_time || null,
@@ -89,13 +96,25 @@ export async function GET() {
     })
   } catch (error) {
     console.error('Error fetching dashboard stats:', error)
-    return NextResponse.json(
-      { 
-        success: false,
-        error: 'Failed to fetch dashboard stats',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
+    
+    // Return fallback data on error
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch dashboard stats',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      fallbackData: {
+        emailCount: 0,
+        visitorCount: 0,
+        todayDetectionCount: 0,
+        totalDetectionCount: 0,
+        last24HoursCount: 0,
+        esp32Status: {
+          online: false,
+          lastSeen: null,
+          location: 'Unknown',
+          device_id: 'ESP32_Main'
+        }
+      }
+    }, { status: 500 })
   }
 } 

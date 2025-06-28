@@ -1,17 +1,10 @@
-import { PrismaClient } from "@/lib/generated/prisma"
+import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
-
-const prisma = new PrismaClient()
 
 export async function GET() {
   try {
-    // Test database connection
-    await prisma.$connect()
-    
-    // Test if we can query the database
+    // Test database connection และ query
     const emailCount = await prisma.email.count()
-    
-    await prisma.$disconnect()
     
     return NextResponse.json({
       status: "healthy",

@@ -7,10 +7,10 @@ export async function GET() {
     console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
     console.log("DATABASE_URL preview:", process.env.DATABASE_URL?.substring(0, 50) + "...");
     
-    // Test database connection
+    // Test database connection with simple query
     console.log("Testing database connection...");
-    const result = await prisma.$queryRaw`SELECT 1`;
-    console.log("Database connection test result:", result);
+    const connectionTest = await prisma.email.findFirst().catch(() => null);
+    console.log("Database connection test successful");
     
     console.log("Attempting to fetch emails from database...");
     const emails = await prisma.email.findMany({

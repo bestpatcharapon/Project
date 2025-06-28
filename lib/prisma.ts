@@ -4,33 +4,30 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// ใช้ DATABASE_URL ตามที่กำหนดโดยไม่แปลง protocol
+// ปรับปรุงการจัดการ DATABASE_URL
 function getDatabaseUrl() {
   const url = process.env.DATABASE_URL
   if (!url) {
     throw new Error('DATABASE_URL is not defined')
   }
-  
-  // Debug: ตรวจสอบ environment variables
-  console.log('🔍 Environment Variables Debug:')
-  console.log('  DATABASE_URL length:', url.length)
-  console.log('  DATABASE_URL first 50 chars:', url.substring(0, 50))
-  console.log('  DATABASE_URL last 50 chars:', url.substring(url.length - 50))
-  console.log('  NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL)
-  
-  // ใช้ URL ตามที่กำหนดโดยไม่เปลี่ยน protocol
-  // สำหรับ Render PostgreSQL ใช้ postgresql:// ปกติ
-  console.log('🔗 Database URL Protocol:', url.split('://')[0])
   return url
 }
 
+// ปรับปรุง PrismaClient configuration สำหรับ production
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query'] : ['error'],
+  log: process.env.NODE_ENV === 'development' ? ['error'] : ['error'],
   datasources: {
     db: {
       url: getDatabaseUrl(),
     },
   },
 })
+
+// ทำให้แน่ใจว่า connection ถูกปิดเมื่อ app shutdown
+if (typeof window === 'undefined') {
+  process.on('beforeExit', async () => {
+    await prisma.$disconnect()
+  })
+}
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma 
