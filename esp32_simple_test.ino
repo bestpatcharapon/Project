@@ -238,8 +238,8 @@ void printStatus() {
 void loop() {
     unsigned long currentTime = millis();
     
-    // ส่ง heartbeat ทุก 8 วินาที (เร็วมากขึ้น)
-    if (currentTime - lastHeartbeat >= 8000) {
+    // ส่ง heartbeat ทุก 20 วินาที (เสถียรและประหยัดแบตเตอรี่)
+    if (currentTime - lastHeartbeat >= 20000) {
         sendHeartbeat();
         lastHeartbeat = currentTime;
     }

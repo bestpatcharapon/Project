@@ -75,8 +75,8 @@ export async function GET(request: NextRequest) {
     const now = new Date()
     const timeDiff = now.getTime() - deviceData.lastSeen.getTime()
     
-    // ใช้ timeout แบบง่าย - ถือว่า offline ถ้าเกิน 30 วินาที
-    const TIMEOUT_MS = 30000 // 30 วินาที
+    // ใช้ timeout ที่ยืดหยุ่นกว่า - ถือว่า offline ถ้าเกิน 90 วินาที
+    const TIMEOUT_MS = 90000 // 90 วินาที (3x ของ heartbeat interval)
     const isOnline = timeDiff < TIMEOUT_MS
     
     console.log(`🔍 Status check for ${deviceId}: timeDiff=${Math.floor(timeDiff/1000)}s, isOnline=${isOnline}`)
