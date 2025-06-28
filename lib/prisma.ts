@@ -4,18 +4,15 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// แปลง DATABASE_URL ให้ใช้ protocol ที่ถูกต้อง
+// ใช้ DATABASE_URL ตามที่กำหนดโดยไม่แปลง protocol
 function getDatabaseUrl() {
   const url = process.env.DATABASE_URL
   if (!url) {
     throw new Error('DATABASE_URL is not defined')
   }
   
-  // ถ้าเป็น postgresql:// ให้เปลี่ยนเป็น prisma+postgres://
-  if (url.startsWith('postgresql://')) {
-    return url.replace('postgresql://', 'prisma+postgres://')
-  }
-  
+  // ใช้ URL ตามที่กำหนดโดยไม่เปลี่ยน protocol
+  // สำหรับ Render PostgreSQL ใช้ postgresql:// ปกติ
   return url
 }
 
