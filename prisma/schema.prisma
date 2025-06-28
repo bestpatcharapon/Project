@@ -11,19 +11,35 @@ datasource db {
 model Email {
   id    Int    @id @default(autoincrement())
   email String @unique
+
+  @@index([email])
 }
 
 model General_information {
-  id             Int      @id @default(autoincrement())
-  device_id      String
-  location       String
-  detection_time DateTime
+  id              Int      @id @default(autoincrement())
+  device_id       String
+  location        String
+  detection_time  DateTime
   detection_human Boolean
+  
+  // เพิ่ม relation กับ Processing_Performance
+  processing_performance Processing_Performance[]
+
+  // เพิ่ม indexes สำหรับ queries ที่ใช้บ่อย
+  @@index([detection_time])
+  @@index([device_id])
+  @@index([detection_time, device_id])
 }
 
 model Processing_Performance {
-  id                 Int     @id @default(autoincrement())
+  id                  Int     @id @default(autoincrement())
   dsp_time           Float
   classification_time Float
   anomaly_time       Float
+  
+  // เพิ่ม foreign key เชื่อมกับ General_information
+  general_info_id    Int?
+  general_info       General_information? @relation(fields: [general_info_id], references: [id])
+  
+  @@index([general_info_id])
 }

@@ -1,6 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
+import ClientLayout from "./ClientLayout"
 
 export const metadata: Metadata = {
   title: "ESP32 Setup & Dashboard",
@@ -21,5 +22,3 @@ export default function RootLayout({
     </html>
   )
 }
-
-import ClientLayout from "./ClientLayout"

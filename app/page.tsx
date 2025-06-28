@@ -57,25 +57,23 @@ export default function Dashboard() {
   const ITEMS_PER_PAGE = 6
 
   useEffect(() => {
-    fetchEmailCount()
-    fetchVisitorCount()
-    fetchDetections()
-    fetchEsp32Status()
-    recordVisit()
+    // เรียกข้อมูลพร้อมกันในครั้งแรก
+    Promise.all([
+      fetchDashboardStats(),
+      fetchDetections(),
+      recordVisit()
+    ])
 
-    // รีเฟรชข้อมูลการตรวจจับทุก 30 วินาที
+    // รีเฟรชข้อมูลทุก 30 วินาที
     const fetchInterval = setInterval(() => {
-      fetchDetections(currentPage)
+      Promise.all([
+        fetchDashboardStats(),
+        fetchDetections(currentPage)
+      ])
     }, 30000)
-
-    // รีเฟรชสถานะ ESP32 ทุก 15 วินาที
-    const esp32Interval = setInterval(() => {
-      fetchEsp32Status()
-    }, 15000)
 
     return () => {
       clearInterval(fetchInterval)
-      clearInterval(esp32Interval)
     }
   }, [])
 
@@ -93,6 +91,34 @@ export default function Dashboard() {
 
     return () => clearInterval(pageInterval)
   }, [totalPages, isShowingTodayData])
+
+  const fetchDashboardStats = async () => {
+    setIsLoadingEmails(true)
+    setIsLoadingVisitors(true)  
+    setIsLoadingEsp32(true)
+    
+    try {
+      const response = await fetch("/api/dashboard/stats")
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          const data = result.data
+          setEmailCount(data.emailCount)
+          setVisitorCount(data.visitorCount)
+          setTodayDetectionCount(data.todayDetectionCount)
+          setTotalDetectionCount(data.totalDetectionCount)
+          setLast24HoursCount(data.last24HoursCount)
+          setEsp32Status(data.esp32Status)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error)
+    } finally {
+      setIsLoadingEmails(false)
+      setIsLoadingVisitors(false)
+      setIsLoadingEsp32(false)
+    }
+  }
 
   const fetchEmailCount = async () => {
     setIsLoadingEmails(true)

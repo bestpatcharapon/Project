@@ -1,19 +1,27 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { PrismaClient } from "@/lib/generated/prisma"
+import { prisma } from "@/lib/prisma"
 import nodemailer from "nodemailer"
 
-const prisma = new PrismaClient()
-
-// SMTP Configuration from ESP32 code
+// SMTP Configuration from ESP32 code - ใช้ค่าจาก .env
 const SMTP_CONFIG = {
-  host: "smtp.gmail.com",
-  port: 587,
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || "587"),
   secure: false, // true for 465, false for other ports
   auth: {
-    user: process.env.SMTP_USER || "testarduino01@gmail.com",
-    pass: process.env.SMTP_PASSWORD || "zbufqmfsumtwromp", // App password
+    user: process.env.AUTHOR_EMAIL || process.env.SMTP_USER || "testarduino01@gmail.com",
+    pass: process.env.AUTHOR_PASSWORD || process.env.SMTP_PASSWORD || "zbufqmfsumtwromp",
   },
 }
+
+// Debug: แสดงการตั้งค่า SMTP (ไม่แสดงรหัสผ่านเต็ม)
+console.log("🔧 SMTP Configuration:")
+console.log("  Host:", SMTP_CONFIG.host)
+console.log("  Port:", SMTP_CONFIG.port)
+console.log("  User:", SMTP_CONFIG.auth.user)
+console.log("  Pass:", SMTP_CONFIG.auth.pass ? `${SMTP_CONFIG.auth.pass.substring(0, 4)}****` : "NOT SET")
+console.log("  Environment variables:")
+console.log("    AUTHOR_EMAIL:", process.env.AUTHOR_EMAIL || "NOT SET")
+console.log("    AUTHOR_PASSWORD:", process.env.AUTHOR_PASSWORD ? `${process.env.AUTHOR_PASSWORD.substring(0, 4)}****` : "NOT SET")
 
 export async function POST(request: NextRequest) {
   try {

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@/lib/generated/prisma'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,62 +28,62 @@ export async function GET(request: NextRequest) {
     console.log('Thailand time range:', todayStart, 'to', tomorrowStart)
     console.log('UTC time range for query:', todayStartUTC, 'to', tomorrowStartUTC)
 
-    // นับจำนวนการตรวจจับของวันนี้
-    const todayDetectionCount = await prisma.general_information.count({
-      where: {
-        detection_time: {
-          gte: todayStartUTC,
-          lt: tomorrowStartUTC
+    // ใช้ Promise.all เพื่อ query พร้อมกัน
+    const [
+      latestDetections,
+      todayDetectionCount,
+      totalDetections,
+      last24HoursCount
+    ] = await Promise.all([
+      // ดึงข้อมูลพร้อม join กับ processing_performance
+      prisma.general_information.findMany({
+        where: {
+          detection_time: {
+            gte: todayStartUTC,
+            lt: tomorrowStartUTC
+          }
+        },
+        include: {
+          processing_performance: {
+            take: 1,
+            orderBy: { id: 'desc' }
+          }
+        },
+        orderBy: {
+          detection_time: 'desc'
+        },
+        skip: skip,
+        take: limit
+      }),
+      
+      // นับจำนวนของวันนี้
+      prisma.general_information.count({
+        where: {
+          detection_time: {
+            gte: todayStartUTC,
+            lt: tomorrowStartUTC
+          }
         }
-      }
-    })
-
-    // ดึงข้อมูลการตรวจจับของวันนี้เท่านั้น
-    const latestDetections = await prisma.general_information.findMany({
-      where: {
-        detection_time: {
-          gte: todayStartUTC,
-          lt: tomorrowStartUTC
+      }),
+      
+      // นับจำนวนทั้งหมด
+      prisma.general_information.count(),
+      
+      // นับจำนวน 24 ชั่วโมงล่าสุด
+      prisma.general_information.count({
+        where: {
+          detection_time: {
+            gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+          }
         }
-      },
-      orderBy: {
-        detection_time: 'desc' // เรียงจากใหม่ไปเก่า
-      },
-      skip: skip,
-      take: limit
-    })
-
-    // ดึงข้อมูล performance ที่สอดคล้องกับการตรวจจับ
-    const performanceData = await prisma.processing_Performance.findMany({
-      orderBy: {
-        id: 'desc'
-      },
-      take: latestDetections.length
-    })
-
-    // รวมข้อมูล detection กับ performance
-    const detectionsWithPerformance = latestDetections.map((detection, index) => ({
-      ...detection,
-      processing_performance: performanceData[index] ? [performanceData[index]] : []
-    }))
-
-    // คำนวณสถิติต่างๆ
-    const totalDetections = await prisma.general_information.count()
-    
-    const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    const last24HoursCount = await prisma.general_information.count({
-      where: {
-        detection_time: {
-          gte: last24Hours
-        }
-      }
-    })
+      })
+    ])
 
     // สำหรับการแสดงผล pagination ใช้ข้อมูลวันนี้เท่านั้น
     const todayTotalPages = Math.ceil(todayDetectionCount / limit)
 
     console.log('API Response:', {
-      detectionsCount: detectionsWithPerformance.length,
+      detectionsCount: latestDetections.length,
       todayCount: todayDetectionCount,
       last24HoursCount,
       totalCount: totalDetections,
@@ -94,7 +92,7 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json({
-      latestDetections: detectionsWithPerformance,
+      latestDetections,
       todayCount: todayDetectionCount,
       last24HoursCount,
       totalCount: totalDetections,
