@@ -13,6 +13,7 @@ function getDatabaseUrl() {
   
   // ใช้ URL ตามที่กำหนดโดยไม่เปลี่ยน protocol
   // สำหรับ Render PostgreSQL ใช้ postgresql:// ปกติ
+  console.log('🔗 Database URL Protocol:', url.split('://')[0])
   return url
 }
 
