@@ -76,7 +76,7 @@ unsigned long last_capture_time = 0;
 const unsigned long capture_interval = 30000; // 30 วินาที
 
 // Heartbeat Configuration
-const char* heartbeatURL = "https://alertemail.vercel.app/api/esp32/heartbeat"; // URL สำหรับ heartbeat
+const char* heartbeatURL = "https://project-ex9u.onrender.com/api/esp32/heartbeat"; // URL สำหรับ heartbeat
 unsigned long last_heartbeat_time = 0;
 const unsigned long heartbeat_interval = 30000; // ส่ง heartbeat ทุก 30 วินาที
 

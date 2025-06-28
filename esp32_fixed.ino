@@ -7,8 +7,8 @@ const char* ssid = "Kanchada_2.4G";        // แก้ไขเป็น WiFi �
 const char* password = "yoriya888";      // แก้ไขเป็นรหัสผ่าน WiFi ของคุณ
 
 // Web Application URLs - Production Server
-//const char* detectionURL = "https://alertemail.vercel.app/api/detection";        
-//const char* heartbeatURL = "https://alertemail.vercel.app/api/esp32/heartbeat";  
+//const char* detectionURL = "https://project-ex9u.onrender.com/api/detection";        
+//const char* heartbeatURL = "https://project-ex9u.onrender.com/api/esp32/heartbeat";  
 
 // สำหรับ local development (ถ้าต้องการทดสอบ local)
 const char* detectionURL = "http://192.168.1.108:3000/api/detection";
@@ -271,7 +271,7 @@ void testAPIEndpoints() {
     // ทดสอบ server connectivity ด้วย health check
     Serial.println("📡 Testing server connectivity...");
     HTTPClient http;
-    String healthURL = "https://alertemail.vercel.app/api/health";
+    String healthURL = "https://project-ex9u.onrender.com/api/health";
     http.begin(healthURL.c_str());
     http.setTimeout(10000);
     
