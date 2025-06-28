@@ -380,7 +380,7 @@ export default function Dashboard() {
                    </Badge>
                  </div>
                  <div className="flex items-center justify-between">
-                   <span className="text-sm text-gray-600 dark:text-gray-400">สะสมทั้งหมด</span>
+                   <span className="text-sm text-gray-600 dark:text-gray-400">สถิติการตรวจจับทั้งหมด</span>
                    <Badge variant="outline" className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
                      {totalDetectionCount} รายการ
                    </Badge>
