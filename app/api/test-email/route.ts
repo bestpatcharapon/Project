@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import nodemailer from "nodemailer"
+import { formatThailandTime } from "@/lib/timezone"
 
 // SMTP Configuration from ESP32 code - ใช้ค่าจาก .env
 const SMTP_CONFIG = {
@@ -102,14 +103,7 @@ export async function POST(request: NextRequest) {
               <div style="display: flex; align-items: center;">
                 <span style="color: #ec4899; margin-right: 8px;">⏰</span>
                 <span style="color: #64748b; font-weight: 500;">Detection Time:</span>
-                <span style="margin-left: 8px; color: #1f2937;">${new Date(latestDetection.detection_time).toLocaleString('th-TH', { 
-                  year: 'numeric', 
-                  month: '2-digit', 
-                  day: '2-digit', 
-                  hour: '2-digit', 
-                  minute: '2-digit', 
-                  second: '2-digit' 
-                })}</span>
+                <span style="margin-left: 8px; color: #1f2937;">${formatThailandTime(latestDetection.detection_time)}</span>
               </div>
             </div>
 
@@ -185,14 +179,7 @@ export async function POST(request: NextRequest) {
               <div>
                 <span style="color: #ec4899; margin-right: 6px;">⏰</span>
                 <span style="color: #64748b; font-weight: 500; font-size: 14px;">Test Time:</span>
-                <span style="margin-left: 6px; color: #374151; font-size: 14px;">${new Date().toLocaleString('th-TH', { 
-                  day: '2-digit', 
-                  month: '2-digit', 
-                  year: 'numeric', 
-                  hour: '2-digit', 
-                  minute: '2-digit', 
-                  second: '2-digit' 
-                })}</span>
+                <span style="margin-left: 6px; color: #374151; font-size: 14px;">${formatThailandTime(new Date())}</span>
               </div>
             </div>
 

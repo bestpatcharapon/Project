@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Mail, Plus, Trash2, Loader2 } from "lucide-react"
+import { Mail, Plus, Trash2, Loader2, Send } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Email {
@@ -17,6 +17,7 @@ export function EmailSettings() {
   const [emails, setEmails] = useState<{ id: number | string; email: string }[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isTesting, setIsTesting] = useState(false)
 
   const { toast } = useToast()
 
@@ -101,6 +102,50 @@ export function EmailSettings() {
     }
   }
 
+  const handleTestEmail = async () => {
+    if (emails.filter(e => e.email.trim()).length === 0) {
+      toast({
+        title: "ไม่สามารถทดสอบได้",
+        description: "กรุณาเพิ่มอีเมลก่อนทดสอบ",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsTesting(true)
+
+    try {
+      const response = await fetch("/api/test-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          // ไม่ส่ง testMessage เพื่อให้ API ใช้ข้อมูลจากฐานข้อมูล
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to send test email")
+      }
+
+      const result = await response.json()
+      toast({
+        title: "ส่งอีเมลทดสอบสำเร็จ! 📧",
+        description: `ส่งไปยัง ${result.details?.recipientCount || 0} อีเมล`,
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการส่งอีเมล"
+      toast({
+        title: "เกิดข้อผิดพลาด",
+        description: errorMessage,
+        variant: "destructive",
+      })
+      console.error(error)
+    } finally {
+      setIsTesting(false)
+    }
+  }
+
 
 
   return (
@@ -114,7 +159,7 @@ export function EmailSettings() {
             <div>
               <CardTitle className="text-gray-900 dark:text-gray-100 text-lg">อีเมลสำหรับแจ้งเตือน</CardTitle>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                จัดการรายการอีเมลที่จะได้รับการแจ้งเตือน
+                จัดการรายการอีเมลที่จะได้รับการแจ้งเตือน • คลิก "ทดสอบอีเมล" เพื่อส่งข้อมูลจากฐานข้อมูล
               </p>
             </div>
           </div>
@@ -171,7 +216,26 @@ export function EmailSettings() {
         )}
       </CardContent>
       
-      <CardFooter className="border-t border-gray-100 dark:border-gray-700 pt-8 flex justify-end">
+      <CardFooter className="border-t border-gray-100 dark:border-gray-700 pt-8 flex justify-between">
+        <Button 
+          onClick={handleTestEmail} 
+          disabled={isTesting || emails.filter(e => e.email.trim()).length === 0}
+          variant="outline"
+          className="border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950 px-6 py-3"
+        >
+          {isTesting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              กำลังส่ง...
+            </>
+          ) : (
+            <>
+              <Send className="mr-2 h-4 w-4" />
+              ทดสอบอีเมล
+            </>
+          )}
+        </Button>
+        
         <Button 
           onClick={handleSave} 
           disabled={isSaving}

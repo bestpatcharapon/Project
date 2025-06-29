@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { createThailandTimestamp, formatThailandTime } from '@/lib/timezone'
 
 // Interface for detection data
 interface DetectionData {
@@ -78,12 +79,13 @@ async function processBatchDetections(body: { detections: DetectionData[], batch
       // ใช้ human_detected ที่ส่งมาจาก ESP32 หรือใช้ confidence เป็น fallback
       const isHumanDetected = human_detected !== undefined ? human_detected : (confidence && confidence > 0.5)
 
-      // บันทึกข้อมูลการตรวจจับ
+      // บันทึกข้อมูลการตรวจจับ (ใช้เขตเวลาไทย GMT+7)
+      const detectionTimestamp = createThailandTimestamp(detection_time)
       const detection = await prisma.general_information.create({
         data: {
           device_id,
           location,
-          detection_time: detection_time ? new Date(detection_time) : new Date(),
+          detection_time: detectionTimestamp,
           detection_human: isHumanDetected || false
         }
       })
@@ -124,12 +126,22 @@ async function processBatchDetections(body: { detections: DetectionData[], batch
       console.log(`🚨 Human detected in batch! Sending email notification... (${humanDetectionCount}/${detections.length} detections)`)
       
       try {
+        // ดึงข้อมูล detection record ล่าสุดที่มี human detection
+        const latestHumanDetection = await prisma.general_information.findFirst({
+          where: {
+            detection_human: true
+          },
+          orderBy: {
+            detection_time: 'desc'
+          }
+        })
+        
         await sendEmailNotification(humanDetectionData, {
           isBatch: true,
           batchId: batch_id,
           totalDetections: detections.length,
           humanDetections: humanDetectionCount
-        })
+        }, latestHumanDetection)
       } catch (emailError) {
         console.error('❌ Error sending batch email:', emailError)
       }
@@ -177,12 +189,13 @@ async function processSingleDetection(body: DetectionData) {
   // ใช้ human_detected ที่ส่งมาจาก ESP32 หรือใช้ confidence เป็น fallback
   const isHumanDetected = human_detected !== undefined ? human_detected : (confidence && confidence > 0.5)
 
-  // บันทึกข้อมูลการตรวจจับ
+  // บันทึกข้อมูลการตรวจจับ (ใช้เขตเวลาไทย GMT+7)
+  const detectionTimestamp = createThailandTimestamp()
   const detection = await prisma.general_information.create({
     data: {
       device_id,
       location,
-      detection_time: new Date(),
+      detection_time: detectionTimestamp,
       detection_human: isHumanDetected || false
     }
   })
@@ -207,7 +220,7 @@ async function processSingleDetection(body: DetectionData) {
     console.log('🚨 Human detected! Sending email notification...')
     
     try {
-      await sendEmailNotification(body)
+      await sendEmailNotification(body, undefined, detection)
     } catch (emailError) {
       console.error('❌ Error sending email:', emailError)
     }
@@ -231,7 +244,7 @@ async function sendEmailNotification(detectionData: DetectionData, batchInfo?: {
   batchId?: string,
   totalDetections: number,
   humanDetections: number
-}) {
+}, detectionRecord?: any) {
   try {
     // ใช้ absolute URL สำหรับ production หรือ localhost สำหรับ development
     const baseUrl = process.env.NODE_ENV === 'production' 
@@ -300,7 +313,7 @@ async function sendEmailNotification(detectionData: DetectionData, batchInfo?: {
           <div style="display: flex; align-items: center; margin-bottom: 12px;">
             <span style="color: #ec4899; margin-right: 8px;">⏰</span>
             <span style="color: #64748b; font-weight: 500;">Detection Time:</span>
-            <span style="margin-left: 8px; color: #1f2937;">${new Date().toLocaleString('th-TH')}</span>
+            <span style="margin-left: 8px; color: #1f2937;">${detectionRecord ? formatThailandTime(new Date(detectionRecord.detection_time)) : formatThailandTime(new Date())}</span>
           </div>
           <div style="display: flex; align-items: center;">
             <span style="color: #10b981; margin-right: 8px;">🎯</span>

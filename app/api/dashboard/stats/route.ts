@@ -37,14 +37,12 @@ async function checkESP32RealTimeStatus(deviceId: string) {
   }
 }
 
+import { getTodayRangeInThailand } from '@/lib/timezone'
+
 export async function GET() {
   try {
-    // คำนวณช่วงเวลาวันนี้
-    const now = new Date()
-    const thailandOffset = 7 * 60 * 60 * 1000
-    const thailandNow = new Date(now.getTime() + thailandOffset)
-    const todayStart = new Date(thailandNow.getFullYear(), thailandNow.getMonth(), thailandNow.getDate())
-    const todayStartUTC = new Date(todayStart.getTime() - thailandOffset)
+    // คำนวณช่วงเวลาวันนี้ในเขตเวลาไทย
+    const { todayStart: todayStartUTC } = getTodayRangeInThailand()
 
     // เพิ่ม timeout สำหรับ database operations
     const timeout = new Promise((_, reject) =>

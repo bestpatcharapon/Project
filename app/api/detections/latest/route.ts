@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getTodayRangeInThailand } from '@/lib/timezone'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,23 +10,10 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '6')
     const skip = page * limit
 
-    // แก้ปัญหา timezone โดยใช้ UTC และแปลงให้ถูกต้อง
-    const now = new Date()
-    
-    // สำหรับ Thailand (UTC+7), เราต้องปรับเวลาให้ถูกต้อง
-    const thailandOffset = 7 * 60 * 60 * 1000 // 7 hours in milliseconds
-    const thailandNow = new Date(now.getTime() + thailandOffset)
-    
-    // คำนวณช่วงเวลาสำหรับวันปัจจุบันในเขตเวลาไทย
-    const todayStart = new Date(thailandNow.getFullYear(), thailandNow.getMonth(), thailandNow.getDate())
-    const tomorrowStart = new Date(todayStart)
-    tomorrowStart.setDate(tomorrowStart.getDate() + 1)
-    
-    // แปลงกลับเป็น UTC สำหรับ database query
-    const todayStartUTC = new Date(todayStart.getTime() - thailandOffset)
-    const tomorrowStartUTC = new Date(tomorrowStart.getTime() - thailandOffset)
+    // ใช้ฟังก์ชันสำหรับคำนวณช่วงเวลาในเขตเวลาไทย
+    const { todayStart: todayStartUTC, tomorrowStart: tomorrowStartUTC, todayStartThailand, tomorrowStartThailand } = getTodayRangeInThailand()
 
-    console.log('Thailand time range:', todayStart, 'to', tomorrowStart)
+    console.log('Thailand time range:', todayStartThailand, 'to', tomorrowStartThailand)
     console.log('UTC time range for query:', todayStartUTC, 'to', tomorrowStartUTC)
 
     // ใช้ Promise.all เพื่อ query พร้อมกัน
