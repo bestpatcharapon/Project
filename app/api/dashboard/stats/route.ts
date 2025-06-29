@@ -1,6 +1,42 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// ฟังก์ชันตรวจสอบสถานะ ESP32 แบบ Real-time
+async function checkESP32RealTimeStatus(deviceId: string) {
+  try {
+    // เรียก Heartbeat API โดยตรง
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? (process.env.NEXT_PUBLIC_APP_URL || 'https://web-xdtm.onrender.com')
+      : 'http://localhost:3000'
+    const heartbeatResponse = await fetch(`${baseUrl}/api/esp32/heartbeat?device_id=${deviceId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      // ไม่ใช้ AbortSignal.timeout เพื่อหลีกเลี่ยงปัญหา compatibility
+    })
+    
+    if (heartbeatResponse.ok) {
+      const heartbeatData = await heartbeatResponse.json()
+      console.log(`💓 Real-time heartbeat check for ${deviceId}:`, heartbeatData)
+      return {
+        online: heartbeatData.online || false,
+        lastSeen: heartbeatData.lastSeen || null,
+        location: heartbeatData.location || 'Unknown',
+        device_id: deviceId
+      }
+    }
+  } catch (error) {
+    console.log(`❌ Real-time heartbeat check failed for ${deviceId}:`, error)
+  }
+  
+  // Return offline status if heartbeat check fails
+  return {
+    online: false,
+    lastSeen: null,
+    location: 'Unknown',
+    device_id: deviceId
+  }
+}
+
 export async function GET() {
   try {
     // คำนวณช่วงเวลาวันนี้
@@ -41,20 +77,9 @@ export async function GET() {
         }
       }),
       
-      // ตรวจสอบสถานะ ESP32 ล่าสุด
-      prisma.general_information.findFirst({
-        where: {
-          device_id: 'ESP32_Main'
-        },
-        orderBy: {
-          detection_time: 'desc'
-        },
-        select: {
-          detection_time: true,
-          device_id: true,
-          location: true
-        }
-      }),
+                         // ตรวจสอบสถานะ ESP32 ทั้งหมดแบบ Real-time จาก Heartbeat API
+      checkESP32RealTimeStatus('ESP32_Main'),
+      checkESP32RealTimeStatus('ESP32_Gateway'),
       
       // นับ unique device_id (simplified)
       prisma.general_information.groupBy({
@@ -67,13 +92,25 @@ export async function GET() {
       todayDetectionCount,
       totalDetectionCount,
       last24HoursCount,
-      esp32Status,
+      esp32MainStatus,
+      esp32GatewayStatus,
       visitorCount
     ] = await Promise.race([dataPromise, timeout]) as any[]
 
-    // ตรวจสอบว่า ESP32 online หรือไม่ (ถ้าส่งข้อมูลใน 5 นาทีที่ผ่านมา)
-    const isEsp32Online = esp32Status && 
-      (Date.now() - new Date(esp32Status.detection_time).getTime()) < 5 * 60 * 1000
+    // รวมสถานะ ESP32 ทั้งหมด
+    const allDevicesOnline = (esp32MainStatus?.online || false) || (esp32GatewayStatus?.online || false)
+    const esp32DevicesStatus = {
+      ESP32_Main: esp32MainStatus,
+      ESP32_Gateway: esp32GatewayStatus,
+      anyOnline: allDevicesOnline
+    }
+    
+    console.log(`🔍 ESP32 Real-time Status:`)
+    console.log(`   ESP32_Main Online: ${esp32MainStatus?.online || false}`)
+    console.log(`   ESP32_Gateway Online: ${esp32GatewayStatus?.online || false}`)
+    console.log(`   Any Device Online: ${allDevicesOnline}`)
+    console.log(`   Main Last seen: ${esp32MainStatus?.lastSeen || 'Never'}`)
+    console.log(`   Gateway Last seen: ${esp32GatewayStatus?.lastSeen || 'Never'}`)
 
     // นับ unique device_id
     const uniqueVisitors = typeof visitorCount === 'number' ? visitorCount : 0
@@ -87,10 +124,10 @@ export async function GET() {
         totalDetectionCount: totalDetectionCount || 0,
         last24HoursCount: last24HoursCount || 0,
         esp32Status: {
-          online: isEsp32Online,
-          lastSeen: esp32Status?.detection_time || null,
-          location: esp32Status?.location || 'Unknown',
-          device_id: esp32Status?.device_id || 'ESP32_Main'
+          online: allDevicesOnline,
+          devices: esp32DevicesStatus,
+          mainDevice: esp32MainStatus,
+          gatewayDevice: esp32GatewayStatus
         }
       }
     })
@@ -110,9 +147,13 @@ export async function GET() {
         last24HoursCount: 0,
         esp32Status: {
           online: false,
-          lastSeen: null,
-          location: 'Unknown',
-          device_id: 'ESP32_Main'
+          devices: {
+            ESP32_Main: { online: false, lastSeen: null, location: 'Unknown', device_id: 'ESP32_Main' },
+            ESP32_Gateway: { online: false, lastSeen: null, location: 'Unknown', device_id: 'ESP32_Gateway' },
+            anyOnline: false
+          },
+          mainDevice: { online: false, lastSeen: null, location: 'Unknown', device_id: 'ESP32_Main' },
+          gatewayDevice: { online: false, lastSeen: null, location: 'Unknown', device_id: 'ESP32_Gateway' }
         }
       }
     }, { status: 500 })
