@@ -4,15 +4,21 @@ import { prisma } from '@/lib/prisma'
 // ฟังก์ชันตรวจสอบสถานะ ESP32 แบบง่าย
 async function checkESP32Status(deviceId: string) {
   try {
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+    
     const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/esp32/status`, {
-      method: 'POST',
+      method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: deviceId }),
+      signal: controller.signal
     })
+    
+    clearTimeout(timeoutId)
     
     if (response.ok) {
       const data = await response.json()
-      return data.isOnline || false
+      return data.online || false
     }
     return false
   } catch (error) {

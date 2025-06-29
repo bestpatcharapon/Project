@@ -18,11 +18,12 @@ export async function GET() {
     const heartbeatTopic = "esp32/heartbeat"
 
     if (!mqttBrokerUrl) {
+      console.log("MQTT not configured - returning offline status")
       return NextResponse.json({ 
         online: false, 
         lastSeen: null,
-        error: "MQTT_BROKER_URL environment variable is not set." 
-      }, { status: 500 })
+        error: "MQTT not configured" 
+      }, { status: 200 })
     }
 
     const client = mqtt.connect(mqttBrokerUrl, {
