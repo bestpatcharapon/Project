@@ -85,14 +85,17 @@ export default function DetectionsPage() {
   }
 
   const formatDate = (dateString: Date) => {
+    // ใช้เวลาจาก database โดยตรง 100% ไม่แปลง timezone
     const date = new Date(dateString)
-    return date.toLocaleDateString('th-TH', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    
+    // ใช้ UTC time โดยตรงจาก database
+    const year = date.getUTCFullYear()
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(date.getUTCDate()).padStart(2, '0')
+    const hours = String(date.getUTCHours()).padStart(2, '0')
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0')
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}`
   }
 
   const getPerformanceColor = (time: number) => {

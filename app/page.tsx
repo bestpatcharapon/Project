@@ -65,22 +65,20 @@ export default function Dashboard() {
     try {
       const response = await fetch("/api/dashboard/stats")
       if (response.ok) {
-        const result = await response.json()
-        if (result.success) {
-          const data = result.data
-          setEmailCount(data.emailCount)
-          setVisitorCount(data.visitorCount)
-          setTodayDetectionCount(data.todayDetectionCount)
-          setTotalDetectionCount(data.totalDetectionCount)
-          setLast24HoursCount(data.last24HoursCount)
-          setEsp32Status(data.esp32Status)
-          
-          // Sync ข้อมูลกับ ClientLayout ผ่าน localStorage และ custom event
-          localStorage.setItem('todayDetectionCount', data.todayDetectionCount.toString())
-          window.dispatchEvent(new CustomEvent('dashboardDataUpdate', {
-            detail: { todayDetectionCount: data.todayDetectionCount }
-          }))
-        }
+        const data = await response.json()
+        // ข้อมูลถูกส่งมาโดยตรงแล้ว ไม่ต้องผ่าน result.data อีกต่อไป
+        setEmailCount(data.emailCount)
+        setVisitorCount(data.visitorCount)
+        setTodayDetectionCount(data.todayDetectionCount)
+        setTotalDetectionCount(data.totalDetectionCount)
+        setLast24HoursCount(data.last24HoursCount)
+        setEsp32Status(data.esp32Status)
+        
+        // Sync ข้อมูลกับ ClientLayout ผ่าน localStorage และ custom event
+        localStorage.setItem('todayDetectionCount', data.todayDetectionCount.toString())
+        window.dispatchEvent(new CustomEvent('dashboardDataUpdate', {
+          detail: { todayDetectionCount: data.todayDetectionCount }
+        }))
       }
     } catch (error) {
       console.error("Error fetching dashboard stats:", error)
@@ -171,14 +169,17 @@ export default function Dashboard() {
   }, [totalPages, isShowingTodayData, fetchDetections])
 
   const formatDate = (dateString: Date) => {
+    // ใช้เวลาจาก database โดยตรง 100% ไม่แปลง timezone
     const date = new Date(dateString)
-    return date.toLocaleDateString('th-TH', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    
+    // ใช้ UTC time โดยตรงจาก database
+    const year = date.getUTCFullYear()
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(date.getUTCDate()).padStart(2, '0')
+    const hours = String(date.getUTCHours()).padStart(2, '0')
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0')
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}`
   }
 
   const getPerformanceColor = (time: number) => {

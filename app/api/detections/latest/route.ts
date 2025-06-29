@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getTodayRangeInThailand } from '@/lib/timezone'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,13 +9,13 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '6')
     const skip = page * limit
 
-    // ใช้ฟังก์ชันสำหรับคำนวณช่วงเวลาในเขตเวลาไทย
-    const { todayStart: todayStartUTC, tomorrowStart: tomorrowStartUTC, todayStartThailand, tomorrowStartThailand } = getTodayRangeInThailand()
+    // ใช้การคำนวณวันง่ายๆ แทนการคำนวณ timezone ซับซ้อน
+    const today = new Date()
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const tomorrowStart = new Date(todayStart)
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1)
 
-    console.log('Thailand time range:', todayStartThailand, 'to', tomorrowStartThailand)
-    console.log('UTC time range for query:', todayStartUTC, 'to', tomorrowStartUTC)
-
-    // ใช้ Promise.all เพื่อ query พร้อมกัน
+    // ใช้ Promise.all เพื่อ query พร้อมกัน (แบบง่าย)
     const [
       latestDetections,
       todayDetectionCount,
@@ -27,8 +26,8 @@ export async function GET(request: NextRequest) {
       prisma.general_information.findMany({
         where: {
           detection_time: {
-            gte: todayStartUTC,
-            lt: tomorrowStartUTC
+            gte: todayStart,
+            lt: tomorrowStart
           }
         },
         include: {
@@ -48,8 +47,8 @@ export async function GET(request: NextRequest) {
       prisma.general_information.count({
         where: {
           detection_time: {
-            gte: todayStartUTC,
-            lt: tomorrowStartUTC
+            gte: todayStart,
+            lt: tomorrowStart
           }
         }
       }),
@@ -57,7 +56,7 @@ export async function GET(request: NextRequest) {
       // นับจำนวนทั้งหมด
       prisma.general_information.count(),
       
-      // นับจำนวน 24 ชั่วโมงล่าสุด
+      // นับจำนวน 24 ชั่วโมงล่าสุด (แบบง่าย)
       prisma.general_information.count({
         where: {
           detection_time: {
@@ -67,35 +66,27 @@ export async function GET(request: NextRequest) {
       })
     ])
 
-    // สำหรับการแสดงผล pagination ใช้ข้อมูลวันนี้เท่านั้น
+    // การแสดงผล pagination ใช้ข้อมูลวันนี้เท่านั้น
     const todayTotalPages = Math.ceil(todayDetectionCount / limit)
 
-    console.log('API Response:', {
-      detectionsCount: latestDetections.length,
-      todayCount: todayDetectionCount,
-      last24HoursCount,
-      totalCount: totalDetections,
-      currentPage: page,
-      totalPages: todayTotalPages
-    })
-
-    return NextResponse.json({
+    const responseData = {
       latestDetections,
       todayCount: todayDetectionCount,
       last24HoursCount,
       totalCount: totalDetections,
       currentPage: page,
       totalPages: todayTotalPages,
-      itemsPerPage: limit,
-      isShowingTodayData: true, // แสดงเฉพาะข้อมูลวันนี้เสมอ
-      message: todayDetectionCount > 0 ? 
-        `แสดงข้อมูลการตรวจจับของวันนี้ (${todayDetectionCount} รายการ)` : 
-        'ยังไม่มีข้อมูลการตรวจจับวันนี้'
-    })
+      isShowingTodayData: todayDetectionCount > 0,
+      message: todayDetectionCount > 0 
+        ? `แสดงข้อมูลการตรวจจับวันนี้ (${todayDetectionCount} รายการ)`
+        : "ไม่มีข้อมูลการตรวจจับในวันนี้"
+    }
+
+    return NextResponse.json(responseData)
   } catch (error) {
-    console.error('Error fetching detections:', error)
+    console.error("Error fetching latest detections:", error)
     return NextResponse.json(
-      { error: 'Failed to fetch detections' },
+      { error: "Failed to fetch detections" },
       { status: 500 }
     )
   }
