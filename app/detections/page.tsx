@@ -18,6 +18,7 @@ interface Detection {
   device_id: string
   location: string
   detection_time: Date
+  detection_human: boolean  // เพิ่ม field นี้
   processing_performance: ProcessingPerformance[]
 }
 
@@ -264,9 +265,15 @@ export default function DetectionsPage() {
                     {/* Status Indicator */}
                     <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
                       <div className="flex items-center justify-between">
-                        <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-300 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/50">
-                          Human Detected
-                        </Badge>
+                        {detection.detection_human ? (
+                          <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-900/50">
+                            🚨 Human Detected
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-900/50">
+                            👍 No Human
+                          </Badge>
+                        )}
                         <div className="text-xs text-gray-500 dark:text-gray-400">
                           {globalIndex === 1 ? 'แรกสุด' : `ลำดับที่ ${globalIndex}`}
                         </div>
