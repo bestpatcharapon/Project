@@ -9,11 +9,12 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '6')
     const skip = page * limit
 
-    // ใช้การคำนวณวันง่ายๆ แทนการคำนวณ timezone ซับซ้อน
+    // ใช้การคำนวณวันง่ายๆ แทนการคำนวณ timezone ซับซ้อน (เหมือนกับ dashboard/stats)
     const today = new Date()
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const tomorrowStart = new Date(todayStart)
-    tomorrowStart.setDate(tomorrowStart.getDate() + 1)
+    
+    // ตรวจสอบข้อมูลใน 24 ชั่วโมงล่าสุดแทนการใช้ "วันนี้" เฉพาะ
+    const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
     // ใช้ Promise.all เพื่อ query พร้อมกัน (แบบง่าย)
     const [
@@ -22,12 +23,11 @@ export async function GET(request: NextRequest) {
       totalDetections,
       last24HoursCount
     ] = await Promise.all([
-      // ดึงข้อมูลพร้อม join กับ processing_performance
+      // ดึงข้อมูลพร้อม join กับ processing_performance (ใช้ 24 ชั่วโมงล่าสุด)
       prisma.general_information.findMany({
         where: {
           detection_time: {
-            gte: todayStart,
-            lt: tomorrowStart
+            gte: last24Hours
           }
         },
         include: {
@@ -43,12 +43,11 @@ export async function GET(request: NextRequest) {
         take: limit
       }),
       
-      // นับจำนวนของวันนี้
+      // นับจำนวนของ 24 ชั่วโมงล่าสุด
       prisma.general_information.count({
         where: {
           detection_time: {
-            gte: todayStart,
-            lt: tomorrowStart
+            gte: last24Hours
           }
         }
       }),
@@ -66,8 +65,8 @@ export async function GET(request: NextRequest) {
       })
     ])
 
-    // การแสดงผล pagination ใช้ข้อมูลวันนี้เท่านั้น
-    const todayTotalPages = Math.ceil(todayDetectionCount / limit)
+    // การแสดงผล pagination ใช้ข้อมูล 24 ชั่วโมงล่าสุด
+    const recentTotalPages = Math.ceil(todayDetectionCount / limit)
 
     const responseData = {
       latestDetections,
@@ -75,11 +74,11 @@ export async function GET(request: NextRequest) {
       last24HoursCount,
       totalCount: totalDetections,
       currentPage: page,
-      totalPages: todayTotalPages,
+      totalPages: recentTotalPages,
       isShowingTodayData: todayDetectionCount > 0,
       message: todayDetectionCount > 0 
-        ? `แสดงข้อมูลการตรวจจับวันนี้ (${todayDetectionCount} รายการ)`
-        : "ไม่มีข้อมูลการตรวจจับในวันนี้"
+        ? `แสดงข้อมูลการตรวจจับล่าสุด (${todayDetectionCount} รายการ)`
+        : "ไม่มีข้อมูลการตรวจจับในช่วง 24 ชั่วโมงที่ผ่านมา"
     }
 
     return NextResponse.json(responseData)

@@ -117,7 +117,7 @@ export default function DetectionsPage() {
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-8 shadow-sm">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">การตรวจจับล่าสุด</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">แสดงข้อมูลการตรวจจับของวันนี้ ({todayDetectionCount} รายการ)</p>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">แสดงข้อมูลการตรวจจับล่าสุด ({todayDetectionCount} รายการ)</p>
           </div>
         </div>
 
@@ -131,7 +131,7 @@ export default function DetectionsPage() {
             <div className="flex items-center space-x-3">
               <Badge variant="outline" className={`${isShowingTodayData ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'}`}>
                 <Eye className="w-3 h-3 mr-1" />
-                {isShowingTodayData ? `วันนี้: ${todayDetectionCount}` : `รวม: ${totalDetectionCount}`} รายการ
+                {isShowingTodayData ? `ล่าสุด: ${todayDetectionCount}` : `รวม: ${totalDetectionCount}`} รายการ
               </Badge>
               {totalPages > 1 && (
                 <div className="flex items-center space-x-1">
@@ -193,10 +193,10 @@ export default function DetectionsPage() {
                 <div className="text-center text-gray-500 dark:text-gray-400">
                   <Activity className="w-16 h-16 mx-auto mb-4 opacity-30" />
                   <h3 className="text-lg font-medium text-gray-600 dark:text-gray-300 mb-2">
-                    ยังไม่มีข้อมูลการตรวจจับวันนี้
+                    ยังไม่มีข้อมูลการตรวจจับล่าสุด
                   </h3>
                   <p className="text-sm">
-                    ระบบจะแสดงเฉพาะข้อมูลการตรวจจับของวันปัจจุบันเท่านั้น<br/>
+                    ระบบจะแสดงข้อมูลการตรวจจับใน 24 ชั่วโมงที่ผ่านมา<br/>
                     รอการตรวจจับจาก ESP32 หรือกดรีเฟรชเพื่ออัปเดตข้อมูล
                   </p>
                 </div>

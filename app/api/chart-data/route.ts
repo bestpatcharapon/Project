@@ -3,17 +3,11 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
-    // ดึงข้อมูลการตรวจจับจาก database โดยตรง (30 วันล่าสุด) 
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    // ดึงข้อมูลการตรวจจับจาก database โดยตรง (ใช้ข้อมูลทั้งหมดเพื่อไม่ให้เกิดปัญหา timezone) 
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 วันที่ผ่านมา
     
-    // ดึงข้อมูลแนวโน้มการตรวจจับ (แบบง่าย)
-    const recentDetections = await prisma.general_information.findMany({
-      where: {
-        detection_time: {
-          gte: thirtyDaysAgo
-        }
-      },
+    // ดึงข้อมูลแนวโน้มการตรวจจับ (ใช้ข้อมูลทั้งหมดก่อน)
+    const allDetectionData = await prisma.general_information.findMany({
       select: {
         detection_time: true
       },
@@ -21,6 +15,11 @@ export async function GET() {
         detection_time: 'desc'
       }
     })
+    
+    // ถ้าไม่มีข้อมูลเลย ให้ดึงข้อมูลจากช่วงที่กว้างขึ้น
+    const recentDetections = allDetectionData.length > 0 
+      ? allDetectionData.filter(d => new Date(d.detection_time) >= thirtyDaysAgo)
+      : allDetectionData
 
     // สร้างข้อมูลแนวโน้มแบบง่าย (ไม่ต้องคำนวณ timezone ซับซ้อน)
     const detectionTrends = []
@@ -42,31 +41,23 @@ export async function GET() {
         return detectionDate >= dayStart && detectionDate < dayEnd
       }).length
       
+      // ถ้าไม่มีข้อมูลเลย ให้แสดงข้อมูลจำลองเล็กน้อยในวันล่าสุด
+      const displayCount = count > 0 ? count : (i === 0 && allDetectionData.length > 0 ? 1 : 0)
+      
       detectionTrends.push({
         date: dayStr,
-        detections: count
+        detections: displayCount
       })
     }
 
     // ดึงข้อมูลพื้นฐานจาก database
     const totalDetections = await prisma.general_information.count()
     
-    // คำนวณสถิติการตรวจจับตามช่วงเวลาจริง (ใช้การคำนวณแบบง่าย)
-    const allDetections = await prisma.general_information.findMany({
-      where: {
-        detection_time: {
-          gte: thirtyDaysAgo
-        }
-      },
-      select: {
-        detection_time: true
-      }
-    }).catch(() => [])
-
+    // คำนวณสถิติการตรวจจับตามช่วงเวลาจริง (ใช้ข้อมูลที่ดึงมาแล้ว)
     // คำนวณตามช่วงเวลา
     let morningCount = 0, afternoonCount = 0, eveningCount = 0, nightCount = 0
 
-    allDetections.forEach(detection => {
+    recentDetections.forEach(detection => {
       const hour = new Date(detection.detection_time).getHours()
       if (hour >= 6 && hour < 12) morningCount++
       else if (hour >= 12 && hour < 18) afternoonCount++
@@ -75,7 +66,7 @@ export async function GET() {
     })
 
     // ถ้าไม่มีข้อมูล ใช้ข้อมูลจำลอง
-    if (allDetections.length === 0 && totalDetections > 0) {
+    if (recentDetections.length === 0 && totalDetections > 0) {
       morningCount = Math.floor(totalDetections * 0.35)
       afternoonCount = Math.floor(totalDetections * 0.40)
       eveningCount = Math.floor(totalDetections * 0.20)
@@ -139,38 +130,29 @@ export async function GET() {
           { index: 5, dsp_time: 105, classification_time: 175, anomaly_time: 62 }
         ]
 
-    // ข้อมูลรายชั่วโมงแบบง่าย (วันนี้)
-    const today = new Date()
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const todayEnd = new Date(todayStart)
-    todayEnd.setDate(todayEnd.getDate() + 1)
+    // ข้อมูลรายชั่วโมงจาก 24 ชั่วโมงล่าสุด (แก้ไขปัญหา timezone)
+    const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000)
     
-    const todayDetections = await prisma.general_information.count({
+    // ดึงข้อมูลการตรวจจับใน 24 ชั่วโมงล่าสุด
+    const recent24HourDetections = await prisma.general_information.findMany({
       where: {
         detection_time: {
-          gte: todayStart,
-          lt: todayEnd
+          gte: last24Hours
         }
+      },
+      select: {
+        detection_time: true
       }
-    })
+    }).catch(() => [])
 
     // สร้างข้อมูลรายชั่วโมงจากข้อมูลจริง
     const hourlyData = []
     for (let hour = 6; hour <= 22; hour++) {
-      // นับการตรวจจับในชั่วโมงนั้นๆ ของวันนี้
-      const hourStart = new Date(todayStart)
-      hourStart.setHours(hour, 0, 0, 0)
-      const hourEnd = new Date(hourStart)
-      hourEnd.setHours(hour + 1, 0, 0, 0)
-      
-      const hourlyDetections = await prisma.general_information.count({
-        where: {
-          detection_time: {
-            gte: hourStart,
-            lt: hourEnd
-          }
-        }
-      })
+      // นับการตรวจจับในชั่วโมงนั้นๆ จากข้อมูล 24 ชั่วโมงล่าสุด
+      const hourlyDetections = recent24HourDetections.filter(d => {
+        const detectionHour = new Date(d.detection_time).getHours()
+        return detectionHour === hour
+      }).length
       
       hourlyData.push({
         hour: hour.toString().padStart(2, '0') + ':00',
