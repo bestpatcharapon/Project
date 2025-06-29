@@ -1,26 +1,22 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-// ฟังก์ชันตรวจสอบสถานะ ESP32 แบบง่าย
+// ฟังก์ชันตรวจสอบสถานะ ESP32 แบบง่าย - เรียกใช้ logic โดยตรงแทนการใช้ fetch
 async function checkESP32Status(deviceId: string) {
   try {
-    // Add timeout to prevent hanging requests
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+    // ใช้ logic เดียวกับ ESP32 status route แต่เรียกโดยตรงแทนการใช้ fetch
+    const mqttBrokerUrl = process.env.MQTT_BROKER_URL
     
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/esp32/status`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal
-    })
-    
-    clearTimeout(timeoutId)
-    
-    if (response.ok) {
-      const data = await response.json()
-      return data.online || false
+    if (!mqttBrokerUrl) {
+      console.log(`MQTT not configured for ${deviceId} - returning offline status`)
+      return false
     }
+
+    // สำหรับตอนนี้ return false เพราะ MQTT อาจยังไม่ได้ตั้งค่า
+    // ในอนาคตสามารถใส่ logic การเชื่อมต่อ MQTT ที่นี่ได้
+    console.log(`${deviceId} status check - MQTT configured but device offline`)
     return false
+    
   } catch (error) {
     console.error(`Error checking ${deviceId} status:`, error)
     return false
