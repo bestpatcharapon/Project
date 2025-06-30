@@ -107,21 +107,28 @@ export function DashboardCharts() {
         { index: 4, dsp_time: 125, classification_time: 210, anomaly_time: 80 },
         { index: 5, dsp_time: 105, classification_time: 175, anomaly_time: 62 }
       ],
-      hourlyData: [
-        { hour: "06:00", detections: 0 },
-        { hour: "07:00", detections: 1 },
-        { hour: "08:00", detections: 3 },
-        { hour: "09:00", detections: 5 },
-        { hour: "10:00", detections: 4 },
-        { hour: "11:00", detections: 6 },
-        { hour: "12:00", detections: 3 },
-        { hour: "13:00", detections: 4 },
-        { hour: "14:00", detections: 7 },
-        { hour: "15:00", detections: 5 },
-        { hour: "16:00", detections: 3 },
-        { hour: "17:00", detections: 2 },
-        { hour: "18:00", detections: 1 }
-      ]
+      hourlyData: Array.from({ length: 24 }, (_, hour) => {
+        let period = ''
+        if (hour >= 6 && hour < 12) period = 'เช้า'
+        else if (hour >= 12 && hour < 18) period = 'บ่าย'
+        else if (hour >= 18 && hour < 22) period = 'เย็น'
+        else period = 'กลางคืน'
+        
+        // สร้างข้อมูลจำลองโดยให้ช่วงเวลาที่มีผู้คนมากมีการตรวจจับมากกว่า
+        let detections = 0
+        if (hour >= 7 && hour <= 9) detections = Math.floor(Math.random() * 3) + 1 // เช้า
+        else if (hour >= 12 && hour <= 14) detections = Math.floor(Math.random() * 4) + 2 // บ่าย
+        else if (hour >= 17 && hour <= 19) detections = Math.floor(Math.random() * 3) + 1 // เย็น
+        else if (hour >= 22 || hour <= 5) detections = Math.floor(Math.random() * 2) // กลางคืน
+        else detections = Math.floor(Math.random() * 2)
+        
+        return {
+          hour: hour.toString().padStart(2, '0') + ':00',
+          detections: detections,
+          period: period,
+          timeSlot: `${hour.toString().padStart(2, '0')}:00 - ${((hour + 1) % 24).toString().padStart(2, '0')}:00`
+        }
+      })
     }
     setChartData(fallbackData)
   }
@@ -366,16 +373,19 @@ export function DashboardCharts() {
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-48">
-            <BarChart data={chartData.hourlyData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+            <BarChart 
+              data={chartData.hourlyData} 
+              margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
+            >
               <XAxis 
                 dataKey="hour" 
-                tick={{ fontSize: 9, fill: 'currentColor' }}
+                tick={{ fontSize: 10, fill: 'currentColor' }}
                 axisLine={false}
                 tickLine={false}
-                interval={2} // แสดงทุก 3 ชั่วโมง
+                interval={Math.floor(chartData.hourlyData.length / 8)} // แสดงประมาณ 8 ป้ายกำกับ
                 angle={-45}
                 textAnchor="end"
-                height={60}
+                height={40}
               />
               <YAxis 
                 tick={{ fontSize: 10, fill: 'currentColor' }}
@@ -390,12 +400,12 @@ export function DashboardCharts() {
                     return (
                       <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
                         <p className="font-medium text-gray-900 dark:text-gray-100">
-                          {data.timeSlot || `${label} - ${(parseInt(label.split(':')[0]) + 1).toString().padStart(2, '0')}:00`}
+                          {data.timeSlot}
                         </p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          ช่วงเวลา: {data.period || 'ทั่วไป'}
+                          ช่วงเวลา: {data.period}
                         </p>
-                        <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                        <p className="text-sm font-medium text-orange-600 dark:text-orange-400">
                           การตรวจจับ: {payload[0].value} ครั้ง
                         </p>
                       </div>

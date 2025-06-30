@@ -145,18 +145,27 @@ export async function GET() {
       }
     }).catch(() => [])
 
-    // สร้างข้อมูลรายชั่วโมงจากข้อมูลจริง
+    // สร้างข้อมูลรายชั่วโมงจากข้อมูลจริง ครบ 24 ชั่วโมง (0-23)
     const hourlyData = []
-    for (let hour = 6; hour <= 22; hour++) {
+    for (let hour = 0; hour < 24; hour++) {
       // นับการตรวจจับในชั่วโมงนั้นๆ จากข้อมูล 24 ชั่วโมงล่าสุด
       const hourlyDetections = recent24HourDetections.filter(d => {
         const detectionHour = new Date(d.detection_time).getHours()
         return detectionHour === hour
       }).length
       
+      // กำหนดชื่อช่วงเวลา
+      let period = ''
+      if (hour >= 6 && hour < 12) period = 'เช้า'
+      else if (hour >= 12 && hour < 18) period = 'บ่าย'
+      else if (hour >= 18 && hour < 22) period = 'เย็น'
+      else period = 'กลางคืน'
+      
       hourlyData.push({
         hour: hour.toString().padStart(2, '0') + ':00',
-        detections: hourlyDetections
+        detections: hourlyDetections,
+        period: period,
+        timeSlot: `${hour.toString().padStart(2, '0')}:00 - ${((hour + 1) % 24).toString().padStart(2, '0')}:00`
       })
     }
 
