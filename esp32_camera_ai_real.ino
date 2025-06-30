@@ -1,21 +1,10 @@
-/*
- * ESP32 Camera with Real Edge Impulse AI - สำหรับระบบ 2 ESP32
- * ใช้ Edge Impulse AI จริงและส่งข้อมูลไปยัง ESP32 Gateway
- * 
- * Features:
- * - Real Edge Impulse AI model detection
- * - Send detection data to ESP32 Gateway
- * - Object detection with bounding boxes
- * - Human detection alerts
- * - WiFi connectivity
- */
-
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Project_Detection_DATASET__inferencing.h>
 #include "edge-impulse-sdk/dsp/image/image.hpp"
 #include "esp_camera.h"
+#include <time.h>  // เพิ่มสำหรับ NTP time sync
 
 // ==================== Camera Model Definition ====================
 #define CAMERA_MODEL_AI_THINKER
@@ -85,6 +74,11 @@ const char* gatewayURL = "http://172.20.10.4/detection";     // ESP32 Gateway IP
 const char* device_id = "ESP32_Camera_AI";
 const char* location = "Front Door";
 
+// ==================== NTP Configuration ====================
+const char* ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = 7 * 3600;  // GMT+7 สำหรับประเทศไทย
+const int daylightOffset_sec = 0;     // ไม่มี daylight saving ในไทย
+
 // ==================== Timing Configuration ====================
 unsigned long last_capture_time = 0;
 const unsigned long capture_interval = 30000; // 30 วินาที (สำหรับทดสอบ)
@@ -105,6 +99,8 @@ bool ei_camera_init(void);
 void ei_camera_deinit(void);
 bool ei_camera_capture(uint32_t img_width, uint32_t img_height, uint8_t *out_buf);
 static int ei_camera_get_data(size_t offset, size_t length, float *out_ptr);
+void setupNTP(void);
+String getCurrentTimestamp(void);
 
 // ==================== WiFi Connection ====================
 void connectToWiFi() {
@@ -197,7 +193,7 @@ void sendDetectionToGateway(ei_impulse_result_t result) {
     DynamicJsonDocument doc(2048);
     doc["device_id"] = device_id;
     doc["location"] = location;
-    doc["timestamp"] = millis();
+    doc["timestamp"] = getCurrentTimestamp();  // ✅ ใช้เวลาจริงจาก NTP
     doc["camera_uptime"] = millis();
     doc["wifi_rssi"] = WiFi.RSSI();
     doc["ai_model"] = "Edge_Impulse_Real";
@@ -338,6 +334,9 @@ void setup() {
         delay(5000);
         ESP.restart();
     }
+
+    // Setup NTP for accurate time
+    setupNTP();
     
     // Initialize Edge Impulse Camera
     if (!ei_camera_init()) {
@@ -566,39 +565,39 @@ static int ei_camera_get_data(size_t offset, size_t length, float *out_ptr) {
     return 0;
 }
 
-/*
- * ==================== USAGE INSTRUCTIONS ====================
- * 
- * 1. Install required libraries:
- *    - ArduinoJson (by Benoit Blanchon)
- *    - Edge Impulse Arduino Library
- *    - Your Edge Impulse model library (Project_Detection_DATASET__inferencing.h)
- *    
- * 2. Select Board: "AI Thinker ESP32-CAM" in Arduino IDE
- * 
- * 3. Upload settings:
- *    - Board: "AI Thinker ESP32-CAM"
- *    - Flash Mode: "QIO"
- *    - Flash Size: "4MB"
- *    - Partition Scheme: "Default 4MB with spiffs"
- *    - PSRAM: "Enabled"
- *    
- * 4. Hardware Requirements:
- *    - ESP32-CAM with at least 4MB Flash
- *    - PSRAM enabled for Edge Impulse
- *    - External 5V power supply (not USB)
- *    - GPIO 0 connected to GND during upload, then disconnected
- *    
- * 5. Configuration:
- *    - WiFi credentials already set for your system
- *    - Gateway IP set to 172.20.10.4 (update if different)
- *    - Deploy ESP32 Gateway first, then update Gateway IP if needed
- *    
- * 6. Data Flow:
- *    ESP32 Camera (Real AI) → ESP32 Gateway → Web Server
- *    
- * 7. Edge Impulse Setup:
- *    - Your Project_Detection_DATASET__inferencing.h must be in the Arduino libraries folder
- *    - Ensure your model supports object detection with bounding boxes
- *    - Model should detect "human" or "person" class
- */ 
+// ==================== NTP Time Functions ====================
+void setupNTP() {
+    Serial.println("🕐 Setting up NTP time sync...");
+    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+    
+    // รอให้ NTP sync เสร็จ
+    Serial.print("🔄 Waiting for NTP time sync");
+    int attempts = 0;
+    while (!time(nullptr) && attempts < 10) {
+        delay(1000);
+        Serial.print(".");
+        attempts++;
+    }
+    
+    if (time(nullptr)) {
+        Serial.println();
+        Serial.println("✅ NTP time synchronized!");
+        Serial.print("🕐 Current time: ");
+        Serial.println(getCurrentTimestamp());
+    } else {
+        Serial.println();
+        Serial.println("❌ NTP time sync failed!");
+    }
+}
+
+String getCurrentTimestamp() {
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    
+    // สร้าง timestamp ในรูปแบบ ISO 8601 (2023-12-07T14:30:45+07:00)
+    char timestamp[32];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%S+07:00", &timeinfo);
+    return String(timestamp);
+}

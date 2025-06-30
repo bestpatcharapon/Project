@@ -32,6 +32,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
+    console.log('🔍 === DETECTION API CALLED ===')
+    console.log('📥 Raw body:', JSON.stringify(body, null, 2))
+    console.log('👤 human_detected field:', body.human_detected)
+    console.log('🎯 confidence field:', body.confidence)
+    console.log('===============================')
+    
     // ตรวจสอบว่าเป็น batch หรือ single detection
     if (body.detections && Array.isArray(body.detections)) {
       // Batch processing

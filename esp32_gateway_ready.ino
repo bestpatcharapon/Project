@@ -1,15 +1,3 @@
-/*
- * ESP32 Gateway - สำหรับระบบ 2 ESP32
- * รับข้อมูลจาก ESP32 Camera และส่งต่อไปยัง Web Server
- * 
- * Features:
- * - HTTP Server to receive detection data from Camera
- * - Forward data to Web Server
- * - Heartbeat system
- * - WiFi connectivity
- * - Web interface for monitoring
- */
-
 #include <WiFi.h>
 #include <WebServer.h>
 #include <HTTPClient.h>
@@ -505,34 +493,3 @@ void loop() {
   // Small delay to prevent watchdog issues
   delay(100);
 }
-
-/*
- * ==================== USAGE INSTRUCTIONS ====================
- * 
- * 1. Install required libraries:
- *    - ArduinoJson (by Benoit Blanchon)
- *    - ESP32 WebServer (built-in)
- *    
- * 2. Select Board: "ESP32 Dev Module" in Arduino IDE
- * 
- * 3. Upload settings:
- *    - Board: "ESP32 Dev Module"
- *    - Flash Mode: "QIO"
- *    - Flash Size: "4MB"
- *    - Partition Scheme: "Default 4MB with spiffs"
- *    
- * 4. Configuration:
- *    - Update WiFi credentials (ssid, password)
- *    - Upload this code to ESP32 Gateway FIRST
- *    - Note the IP address from Serial Monitor
- *    - Update ESP32 Camera code with this Gateway IP
- *    
- * 5. Monitoring:
- *    - Access http://[GATEWAY_IP] for web interface
- *    - Check Serial Monitor at 115200 baud for logs
- *    - GET http://[GATEWAY_IP]/status for JSON status
- *    
- * 6. Data Flow:
- *    ESP32 Camera → ESP32 Gateway → Web Server
- *    ESP32 Gateway → Web Server (Heartbeat every 90 seconds)
- */ 
