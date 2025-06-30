@@ -163,14 +163,14 @@ void sendDetectionToGateway(ei_impulse_result_t result) {
         
         if (labelLower == "human" || labelLower == "person") {
             Serial.printf("👤 Found human/person label with %.1f%% confidence\n", bb.value * 100);
-            if (bb.value > 0.3) { // ลด threshold เป็น 30% สำหรับทดสอบ
+            if (bb.value > 0.5) { // ✅ ใช้ threshold 50% สำหรับการใช้งานจริง
                 humanDetected = true;
                 if (bb.value > highestConfidence) {
                     highestConfidence = bb.value;
                 }
-                Serial.printf("✅ Human detection confirmed! (%.1f%% > 30%)\n", bb.value * 100);
+                Serial.printf("✅ Human detection confirmed! (%.1f%% > 50%)\n", bb.value * 100);
             } else {
-                Serial.printf("❌ Human confidence too low (%.1f%% < 30%)\n", bb.value * 100);
+                Serial.printf("❌ Human confidence too low (%.1f%% < 50%)\n", bb.value * 100);
             }
         } else {
             Serial.printf("📦 Non-human object: %s\n", bb.label);
@@ -322,7 +322,7 @@ void setup() {
     Serial.printf("🌐 Gateway URL: %s\n", gatewayURL);
     Serial.printf("⏱️ Detection Interval: %lu seconds (FAST TEST MODE)\n", capture_interval / 1000);
     Serial.printf("🔄 Human Alert Cooldown: %lu seconds (FAST TEST MODE)\n", human_cooldown / 1000);
-    Serial.printf("🎯 Human Confidence Threshold: 30%% (EMAIL TEST MODE)\n");
+    Serial.printf("🎯 Human Confidence Threshold: 50%% (PRODUCTION MODE)\n");
     Serial.printf("🧠 AI Model: Edge Impulse Real Detection\n");
     Serial.println("==============================================================");
     

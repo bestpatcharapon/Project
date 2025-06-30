@@ -25,6 +25,7 @@ interface DetectionData {
   human_detected?: boolean
   detected_objects?: string
   detection_time?: string // For batch processing
+  timestamp?: string // ESP32 timestamp (ISO format)
 }
 
 // ฟังก์ชันหลักสำหรับรับข้อมูลการตรวจจับ
@@ -188,7 +189,14 @@ async function processSingleDetection(body: DetectionData) {
     detected_objects
   } = body
   
+  // 🔍 DEBUG: เพิ่ม log เพื่อดูข้อมูลที่เข้ามา
+  console.log('🔍 === PROCESSING SINGLE DETECTION ===')
+  console.log('📥 ESP32 Data:', JSON.stringify(body, null, 2))
+  console.log('👤 human_detected value:', human_detected)
+  console.log('🎯 confidence value:', confidence)
+  
   if (!device_id || !location) {
+    console.log('❌ Missing required fields:', { device_id, location })
     return NextResponse.json(
       { error: 'Missing required fields: device_id, location' },
       { status: 400 }
@@ -197,13 +205,34 @@ async function processSingleDetection(body: DetectionData) {
 
   // ใช้ human_detected ที่ส่งมาจาก ESP32 หรือใช้ confidence เป็น fallback
   const isHumanDetected = human_detected !== undefined ? human_detected : (confidence && confidence > 0.5)
+  
+  // 🔍 DEBUG: แสดง logic การตัดสินใจ
+  console.log('🧠 Human Detection Logic:')
+  console.log('   - human_detected from ESP32:', human_detected)
+  console.log('   - confidence from ESP32:', confidence)
+  console.log('   - Final isHumanDetected:', isHumanDetected)
 
-  // บันทึกข้อมูลการตรวจจับ - ใช้เวลาปัจจุบันจาก database
+  // บันทึกข้อมูลการตรวจจับ - ใช้ timestamp จาก ESP32 หรือเวลาปัจจุบัน
+  let detectionTimestamp = new Date()
+  
+  // ถ้ามี timestamp จาก ESP32 และเป็น valid date ให้ใช้
+  if (body.timestamp) {
+    const espTimestamp = new Date(body.timestamp)
+    if (!isNaN(espTimestamp.getTime()) && espTimestamp.getFullYear() >= 2023 && espTimestamp.getFullYear() <= 2030) {
+      detectionTimestamp = espTimestamp
+      console.log('✅ Using ESP32 timestamp:', body.timestamp)
+    } else {
+      console.log('❌ Invalid ESP32 timestamp, using server time:', body.timestamp)
+    }
+  } else {
+    console.log('ℹ️ No timestamp from ESP32, using server time')
+  }
+  
   const detection = await prisma.general_information.create({
     data: {
       device_id,
       location,
-      detection_time: new Date(), // ใช้เวลาปัจจุบันโดยตรง
+      detection_time: detectionTimestamp,
       detection_human: isHumanDetected || false
     }
   })
@@ -224,14 +253,19 @@ async function processSingleDetection(body: DetectionData) {
   console.log('📋 Detected Objects:', detected_objects || 'None specified')
 
   // ส่งอีเมลแจ้งเตือนถ้าตรวจพบคน
+  console.log('🔍 Email Check - isHumanDetected:', isHumanDetected)
   if (isHumanDetected) {
     console.log('🚨 Human detected! Sending email notification...')
+    console.log('📧 Calling sendEmailNotification function...')
     try {
       await sendEmailNotification(body, undefined, detection)
-      console.log('📧 Email notification sent successfully')
+      console.log('✅ Email notification sent successfully!')
     } catch (emailError) {
       console.error('❌ Failed to send email notification:', emailError)
+      console.error('📄 Email error details:', JSON.stringify(emailError, null, 2))
     }
+  } else {
+    console.log('ℹ️ No human detected, skipping email notification')
   }
 
   return NextResponse.json({
@@ -252,22 +286,26 @@ async function sendEmailNotification(detectionData: DetectionData, batchInfo?: {
   humanDetections: number
 }, detectionRecord?: any) {
   try {
+    console.log('📧 === EMAIL NOTIFICATION FUNCTION CALLED ===')
+    console.log('📧 Detection Data:', JSON.stringify(detectionData, null, 2))
+    console.log('📧 Batch Info:', batchInfo ? JSON.stringify(batchInfo, null, 2) : 'Not batch')
+    console.log('📧 Detection Record:', detectionRecord ? JSON.stringify(detectionRecord, null, 2) : 'Not provided')
+    
     const { device_id, location, confidence } = detectionData
     
     // ส่งข้อมูลไปยัง test-email API
-    const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/test-email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        testMessage: batchInfo ? 
-          `🚨 BATCH HUMAN DETECTION ALERT!\n\nBatch ID: ${batchInfo.batchId || 'N/A'}\nTotal Detections: ${batchInfo.totalDetections}\nHuman Detections: ${batchInfo.humanDetections}\nDevice: ${device_id}\nLocation: ${location}\nConfidence: ${confidence ? (confidence * 100).toFixed(1) : 'N/A'}%` :
-          `🚨 HUMAN DETECTION ALERT!\n\nDevice: ${device_id}\nLocation: ${location}\nConfidence: ${confidence ? (confidence * 100).toFixed(1) : 'N/A'}%`,
-        customMessage: true,
-        subject: batchInfo ? 
-          `🚨 Batch Human Detection Alert - ${batchInfo.humanDetections}/${batchInfo.totalDetections} detections` :
-          '🚨 Human Detection Alert',
+    const emailURL = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/test-email`
+    console.log('📧 Email URL:', emailURL)
+    console.log('📧 Preparing email payload...')
+    
+    const emailPayload = {
+      testMessage: batchInfo ? 
+        `🚨 BATCH HUMAN DETECTION ALERT!\n\nBatch ID: ${batchInfo.batchId || 'N/A'}\nTotal Detections: ${batchInfo.totalDetections}\nHuman Detections: ${batchInfo.humanDetections}\nDevice: ${device_id}\nLocation: ${location}\nConfidence: ${confidence ? (confidence * 100).toFixed(1) : 'N/A'}%` :
+        `🚨 HUMAN DETECTION ALERT!\n\nDevice: ${device_id}\nLocation: ${location}\nConfidence: ${confidence ? (confidence * 100).toFixed(1) : 'N/A'}%`,
+      customMessage: true,
+      subject: batchInfo ? 
+        `🚨 Batch Human Detection Alert - ${batchInfo.humanDetections}/${batchInfo.totalDetections} detections` :
+        '🚨 Human Detection Alert',
         emailContent: `
         <!-- Detection Alert Email Content -->
         <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
@@ -341,13 +379,29 @@ async function sendEmailNotification(detectionData: DetectionData, batchInfo?: {
 
         </div>
         `
-      }),
+    }
+    
+    console.log('📧 Email payload prepared:', JSON.stringify(emailPayload, null, 2))
+    console.log('📧 Sending email request...')
+    
+    const emailResponse = await fetch(emailURL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(emailPayload)
     })
 
+    console.log('📧 Email response status:', emailResponse.status)
+    console.log('📧 Email response ok:', emailResponse.ok)
+    
     if (emailResponse.ok) {
-      console.log('📧 Email notification sent successfully')
+      const responseData = await emailResponse.text()
+      console.log('✅ Email sent successfully! Response:', responseData)
     } else {
-      console.error('❌ Failed to send email notification')
+      const errorData = await emailResponse.text()
+      console.error('❌ Email send failed! Error:', errorData)
+      throw new Error(`Email send failed: ${emailResponse.status} - ${errorData}`)
     }
   } catch (error) {
     console.error('❌ Email notification error:', error)

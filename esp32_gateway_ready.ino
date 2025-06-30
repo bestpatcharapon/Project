@@ -199,9 +199,10 @@ void handleDetection() {
     Serial.printf("⏱️ AI Processing: DSP=%dms, Class=%dms, Anomaly=%dms\n", dspTime, classTime, anomalyTime);
   }
   
-  // Add gateway information
+  // Add gateway information (preserve original timestamp from ESP32)
   doc["forwarded_by"] = device_id;
-  doc["gateway_timestamp"] = millis();
+  // doc["gateway_timestamp"] = millis();  // ❌ ลบออก - ไม่ให้ทับ timestamp เดิม
+  doc["gateway_uptime"] = millis();  // ✅ ใช้ชื่อใหม่สำหรับ gateway uptime
   doc["gateway_ip"] = WiFi.localIP().toString();
   doc["gateway_version"] = "2.0.0";
   
