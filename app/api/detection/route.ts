@@ -293,9 +293,20 @@ async function sendEmailNotification(detectionData: DetectionData, batchInfo?: {
     
     const { device_id, location, confidence } = detectionData
     
-    // ส่งข้อมูลไปยัง test-email API
-    const emailURL = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/test-email`
+    // ส่งข้อมูลไปยัง test-email API - ใช้ internal call
+    let emailURL: string
+    
+    // ตรวจสอบ environment และใช้ URL ที่เหมาะสม
+    if (process.env.NODE_ENV === 'production') {
+      // Production - ใช้ production URL
+      emailURL = 'https://web-xdtm.onrender.com/api/test-email'
+    } else {
+      // Development - ใช้ localhost
+      emailURL = 'http://localhost:3000/api/test-email'
+    }
+    
     console.log('📧 Email URL:', emailURL)
+    console.log('📧 Environment:', process.env.NODE_ENV)
     console.log('📧 Preparing email payload...')
     
     const emailPayload = {
