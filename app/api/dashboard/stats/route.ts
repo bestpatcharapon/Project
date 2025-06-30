@@ -1,49 +1,28 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getESP32Status } from '@/lib/esp32-heartbeat'
 
-// ฟังก์ชันตรวจสอบสถานะ ESP32 ผ่าน HTTP Heartbeat
-async function checkESP32StatusViaHeartbeat(deviceId: string) {
+// ฟังก์ชันตรวจสอบสถานะ ESP32 ผ่าน shared library
+function checkESP32StatusDirect(deviceId: string) {
   try {
-    // เรียกใช้ Heartbeat API เพื่อตรวจสอบสถานะ
-    const baseUrl = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'
-    const response = await fetch(`${baseUrl}/api/esp32/heartbeat?device_id=${deviceId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      // ป้องกัน cache เพื่อให้ได้ข้อมูลล่าสุดเสมอ
-      cache: 'no-store'
-    })
-
-    if (!response.ok) {
-      console.log(`❌ Failed to fetch status for ${deviceId}:`, response.status)
-      return {
-        online: false,
-        lastSeen: null,
-        location: null,
-        device_type: null,
-        uptime: null
-      }
-    }
-
-    const data = await response.json()
+    const status = getESP32Status(deviceId)
     
-    console.log(`✅ ${deviceId} status via heartbeat:`, {
-      online: data.online,
-      lastSeen: data.lastSeen,
-      timeSinceLastSeen: data.timeSinceLastSeen
+    console.log(`✅ ${deviceId} status check:`, {
+      online: status.online,
+      lastSeen: status.lastSeen,
+      timeSinceLastSeen: status.timeSinceLastSeen
     })
 
     return {
-      online: data.online || false,
-      lastSeen: data.lastSeen || null,
-      location: data.location || null,
-      device_type: data.device_type || null,
-      uptime: data.uptime || null
+      online: status.online || false,
+      lastSeen: status.lastSeen || null,
+      location: status.location || null,
+      device_type: status.device_type || null,
+      uptime: status.uptime || null
     }
     
   } catch (error) {
-    console.error(`❌ Error checking ${deviceId} status via heartbeat:`, error)
+    console.error(`❌ Error checking ${deviceId} status:`, error)
     return {
       online: false,
       lastSeen: null,
@@ -60,14 +39,12 @@ export async function GET() {
     const today = new Date()
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
 
-    // ดึงข้อมูลทั้งหมดพร้อมกันด้วย Promise.all (ใช้ HTTP Heartbeat)
+    // ดึงข้อมูล database ด้วย Promise.all และตรวจสอบ ESP32 แยก
     const [
       emailCount,
       todayDetectionCount,
       totalDetectionCount,
       last24HoursCount,
-      esp32CameraStatus,
-      esp32GatewayStatus,
       uniqueDeviceCount
     ] = await Promise.all([
       // นับจำนวนอีเมล
@@ -94,15 +71,15 @@ export async function GET() {
         }
       }),
       
-      // ตรวจสอบสถานะ ESP32 ผ่าน HTTP Heartbeat
-      checkESP32StatusViaHeartbeat('ESP32_Camera_AI'),
-      checkESP32StatusViaHeartbeat('ESP32_Gateway'),
-      
       // นับ unique device_id (แบบง่าย)
       prisma.general_information.groupBy({
         by: ['device_id']
       }).then(result => result.length).catch(() => 0)
     ])
+    
+    // ตรวจสอบสถานะ ESP32 ผ่าน shared library (sync function)
+    const esp32CameraStatus = checkESP32StatusDirect('ESP32_Camera_AI')
+    const esp32GatewayStatus = checkESP32StatusDirect('ESP32_Gateway')
 
     // คำนวณ visitor count แบบง่าย
     const uniqueVisitors = Math.floor(Math.random() * 50) + 10 // ข้อมูลจำลองง่ายๆ
